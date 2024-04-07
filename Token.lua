@@ -85,8 +85,8 @@ function Mod.transfer(msg)
         Recipient = msg.Recipient,
         Quantity = tostring(qty),
         Data = Colors.gray ..
-        "You transferred " ..
-        Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+            "You transferred " ..
+            Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
       })
       -- Send Credit-Notice to the Recipient
       ao.send({
@@ -95,8 +95,8 @@ function Mod.transfer(msg)
         Sender = msg.From,
         Quantity = tostring(qty),
         Data = Colors.gray ..
-        "You received " ..
-        Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+            "You received " ..
+            Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
       })
     end
   else
@@ -105,6 +105,71 @@ function Mod.transfer(msg)
       Action = 'Transfer-Error',
       ['Message-Id'] = msg.Id,
       Error = 'Insufficient Balance!'
+    })
+  end
+end
+
+function Mod.transferFrom(msg)
+  assert(type(msg.Owner) == 'string', 'Owner is required!')
+  assert(type(msg.Recipient) == 'string', 'Recipient is required!')
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
+
+  if not Allowances[msg.Owner] then Allowances[msg.Owner] = {} end
+  if not Allowances[msg.Owner][msg.from] then Allowances[msg.Owner][msg.from] = 0 end
+  if not Balances[msg.Owner] then Balances[msg.Owner] = "0" end
+  if not Balances[msg.Recipient] then Balances[msg.Recipient] = "0" end
+
+  local qty = bint(msg.Quantity)
+  local allowance = bint(Allowances[msg.Owner][msg.from])
+  local balance = bint(Balances[msg.Owner])
+  if bint.__le(qty, allowance) then
+    if bint.__le(qty, balance) then
+      Balances[msg.Owner] = tostring(bint.__sub(balance, qty))
+      Allowances[msg.Owner][msg.from] = tostring(bint.__sub(allowance, qty))
+      Balances[msg.Recipient] = tostring(bint.__add(Balances[msg.Recipient], qty))
+
+      --[[
+          Only send the notifications to the Sender and Recipient
+          if the Cast tag is not set on the Transfer message
+        ]]
+      --
+      if not msg.Cast then
+        -- Send Debit-Notice to the Sender
+        ao.send({
+          Target = msg.Owner,
+          Action = 'Debit-Notice',
+          Recipient = msg.Recipient,
+          Quantity = tostring(qty),
+          Data = Colors.gray ..
+              "You transferred " ..
+              Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+        })
+        -- Send Credit-Notice to the Recipient
+        ao.send({
+          Target = msg.Recipient,
+          Action = 'Credit-Notice',
+          Sender = msg.Owner,
+          Quantity = tostring(qty),
+          Data = Colors.gray ..
+              "You received " ..
+              Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+        })
+      end
+    else
+      ao.send({
+        Target = msg.Owner,
+        Action = 'Transfer-Error',
+        ['Message-Id'] = msg.Id,
+        Error = 'Insufficient Balance!'
+      })
+    end
+  else
+    ao.send({
+      Target = msg.Owner,
+      Action = 'Transfer-Error',
+      ['Message-Id'] = msg.Id,
+      Error = 'Insufficient Allowance!'
     })
   end
 end
@@ -151,4 +216,5 @@ function Mod.init(msg)
   Logo = msg.Logo
   Denomination = bint(msg.Denomination)
 end
+
 return Mod
