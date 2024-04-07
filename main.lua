@@ -14,9 +14,13 @@ if Denomination ~= 8 then Denomination = 8 end
 if not Logo then Logo = '' end
 
 --
-Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), token.Init)
-Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), token.Info)
-Handlers.add('balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), token.Balance)
-Handlers.add('balances', Handlers.utils.hasMatchingTag('Action', 'Balances'), token.Balances)
-Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), token.Transfer)
-Handlers.add('mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), token.Mint)
+Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), token.init)
+Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), token.info)
+Handlers.add('balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), token.balance)
+Handlers.add('balances', Handlers.utils.hasMatchingTag('Action', 'Balances'), token.balances)
+Handlers.add('allowance', Handlers.utils.hasMatchingTag('Action', 'Allowance'), token.allowance)
+Handlers.add('allowances', Handlers.utils.hasMatchingTag('Action', 'Allowances'), token.allowances)
+Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), token.transfer)
+Handlers.add('transferFrom', Handlers.utils.hasMatchingTag('Action', 'TransferFrom'), token.transferFrom)
+Handlers.add('approve', Handlers.utils.hasMatchingTag('Action', 'Approve'), token.approve)
+Handlers.add('mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), token.mint)

@@ -2,8 +2,8 @@ local bint = require('.bint')(256)
 local ao = require('ao')
 local json = require('json')
 
-
-function Info(msg)
+Mod = {}
+function Mod.info(msg)
   ao.send({
     Target = msg.From,
     Name = Name,
@@ -13,7 +13,7 @@ function Info(msg)
   })
 end
 
-function Balance(msg)
+function Mod.balance(msg)
   local bal = '0'
 
   -- If not Target is provided, then return the Senders balance
@@ -32,11 +32,33 @@ function Balance(msg)
   })
 end
 
-function Balances(msg)
+function Mod.balances(msg)
   ao.send({ Target = msg.From, Data = json.encode(Balances) })
 end
 
-function Transfer(msg)
+function Mod.allowance(msg)
+  assert(type(msg.Spender) == 'string', 'Spender is required!')
+  local bal = '0'
+  -- If no Target is provided, then return the Senders balance
+  if (msg.Tags.Target and Allowances[msg.Tags.Target][msg.Spender]) then
+    bal = Allowances[msg.Tags.Target][msg.Spender]
+  elseif Allowances[msg.From][msg.Spender] then
+    bal = Allowances[msg.From][msg.Spender]
+  end
+  ao.send({
+    Target = msg.From,
+    Balance = bal,
+    Ticker = Ticker,
+    Account = msg.Tags.Target or msg.From,
+    Data = bal
+  })
+end
+
+function Mod.allowances(msg)
+  ao.send({ Target = msg.From, Data = json.encode(Allowances) })
+end
+
+function Mod.transfer(msg)
   assert(type(msg.Recipient) == 'string', 'Recipient is required!')
   assert(type(msg.Quantity) == 'string', 'Quantity is required!')
   assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
@@ -87,7 +109,15 @@ function Transfer(msg)
   end
 end
 
-function Mint(msg)
+function Mod.approve(msg)
+  assert(type(msg.Spender) == 'string', 'Spender is required!')
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
+  if not Allowances[msg.From] then Allowances[msg.From] = {} end
+  Allowances[msg.From][msg.Spender] = msg.Quantity
+end
+
+function Mod.mint(msg)
   assert(type(msg.Quantity) == 'string', 'Quantity is required!')
   assert(bint.__lt(0, msg.Quantity), 'Quantity must be greater than zero!')
 
@@ -110,7 +140,7 @@ function Mint(msg)
   end
 end
 
-function Init(msg)
+function Mod.init(msg)
   assert(type(msg.Name) == 'string', 'Name is required!')
   assert(type(msg.Ticker) == 'string', 'Ticker is required!')
   assert(type(msg.Logo) == 'string', 'Logo is required!')
@@ -121,3 +151,4 @@ function Init(msg)
   Logo = msg.Logo
   Denomination = bint(msg.Denomination)
 end
+return Mod
