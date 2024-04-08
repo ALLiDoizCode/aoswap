@@ -1,56 +1,9 @@
 local bint = require('.bint')(256)
 local ao = require('ao')
---[[
-  This module implements the ao Standard Token Specification.
-
-  Terms:
-    Sender: the wallet or Process that sent the Message
-
-  It will first initialize the internal state, and then attach handlers,
-    according to the ao Standard Token Spec API:
-
-    - Info(): return the token parameters, like Name, Ticker, Logo, and Denomination
-
-    - Balance(Target?: string): return the token balance of the Target. If Target is not provided, the Sender
-        is assumed to be the Target
-
-    - Balances(): return the token balance of all participants
-
-    - Transfer(Target: string, Quantity: number): if the Sender has a sufficient balance, send the specified Quantity
-        to the Target. It will also issue a Credit-Notice to the Target and a Debit-Notice to the Sender
-
-    - Mint(Quantity: number): if the Sender matches the Process Owner, then mint the desired Quantity of tokens, adding
-        them the Processes' balance
-]]
---
 local json = require('json')
 
---[[
-     Initialize State
-
-     ao.id is equal to the Process.Id
-   ]]
---
-if not Balances then Balances = { [ao.id] = tostring(bint(10000 * 1e12)) } end
-
-if Name ~= 'Points Coin' then Name = 'Points Coin' end
-
-if Ticker ~= 'Points' then Ticker = 'PNTS' end
-
-if Denomination ~= 12 then Denomination = 12 end
-
-if not Logo then Logo = 'SBCCXwwecBlDqRLUjb8dYABExTJXLieawf7m2aBJ-KY' end
-
---[[
-     Add handlers for each incoming Action defined by the ao Standard Token Specification
-   ]]
---
-
---[[
-     Info
-   ]]
---
-Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(msg)
+Mod = {}
+function Mod.info(msg)
   ao.send({
     Target = msg.From,
     Name = Name,
@@ -58,13 +11,9 @@ Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(m
     Logo = Logo,
     Denomination = tostring(Denomination)
   })
-end)
+end
 
---[[
-     Balance
-   ]]
---
-Handlers.add('balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
+function Mod.balance(msg)
   local bal = '0'
 
   -- If not Target is provided, then return the Senders balance
@@ -81,20 +30,35 @@ Handlers.add('balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), func
     Account = msg.Tags.Target or msg.From,
     Data = bal
   })
-end)
+end
 
---[[
-     Balances
-   ]]
---
-Handlers.add('balances', Handlers.utils.hasMatchingTag('Action', 'Balances'),
-  function(msg) ao.send({ Target = msg.From, Data = json.encode(Balances) }) end)
+function Mod.balances(msg)
+  ao.send({ Target = msg.From, Data = json.encode(Balances) })
+end
 
---[[
-     Transfer
-   ]]
---
-Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), function(msg)
+function Mod.allowance(msg)
+  assert(type(msg.Spender) == 'string', 'Spender is required!')
+  local bal = '0'
+  -- If no Target is provided, then return the Senders balance
+  if (msg.Tags.Target and Allowances[msg.Tags.Target][msg.Spender]) then
+    bal = Allowances[msg.Tags.Target][msg.Spender]
+  elseif Allowances[msg.From][msg.Spender] then
+    bal = Allowances[msg.From][msg.Spender]
+  end
+  ao.send({
+    Target = msg.From,
+    Balance = bal,
+    Ticker = Ticker,
+    Account = msg.Tags.Target or msg.From,
+    Data = bal
+  })
+end
+
+function Mod.allowances(msg)
+  ao.send({ Target = msg.From, Data = json.encode(Allowances) })
+end
+
+function Mod.transfer(msg)
   assert(type(msg.Recipient) == 'string', 'Recipient is required!')
   assert(type(msg.Quantity) == 'string', 'Quantity is required!')
   assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
@@ -120,7 +84,9 @@ Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
         Action = 'Debit-Notice',
         Recipient = msg.Recipient,
         Quantity = tostring(qty),
-        Data = Colors.gray .. "You transferred " .. Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+        Data = Colors.gray ..
+            "You transferred " ..
+            Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
       })
       -- Send Credit-Notice to the Recipient
       ao.send({
@@ -128,7 +94,9 @@ Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
         Action = 'Credit-Notice',
         Sender = msg.From,
         Quantity = tostring(qty),
-        Data = Colors.gray .. "You received " .. Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+        Data = Colors.gray ..
+            "You received " ..
+            Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
       })
     end
   else
@@ -139,13 +107,82 @@ Handlers.add('transfer', Handlers.utils.hasMatchingTag('Action', 'Transfer'), fu
       Error = 'Insufficient Balance!'
     })
   end
-end)
+end
 
---[[
-    Mint
-   ]]
---
-Handlers.add('mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function (msg)
+function Mod.transferFrom(msg)
+  assert(type(msg.Owner) == 'string', 'Owner is required!')
+  assert(type(msg.Recipient) == 'string', 'Recipient is required!')
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
+
+  if not Allowances[msg.Owner] then Allowances[msg.Owner] = {} end
+  if not Allowances[msg.Owner][msg.from] then Allowances[msg.Owner][msg.from] = 0 end
+  if not Balances[msg.Owner] then Balances[msg.Owner] = "0" end
+  if not Balances[msg.Recipient] then Balances[msg.Recipient] = "0" end
+
+  local qty = bint(msg.Quantity)
+  local allowance = bint(Allowances[msg.Owner][msg.from])
+  local balance = bint(Balances[msg.Owner])
+  if bint.__le(qty, allowance) then
+    if bint.__le(qty, balance) then
+      Balances[msg.Owner] = tostring(bint.__sub(balance, qty))
+      Allowances[msg.Owner][msg.from] = tostring(bint.__sub(allowance, qty))
+      Balances[msg.Recipient] = tostring(bint.__add(Balances[msg.Recipient], qty))
+
+      --[[
+          Only send the notifications to the Sender and Recipient
+          if the Cast tag is not set on the Transfer message
+        ]]
+      --
+      if not msg.Cast then
+        -- Send Debit-Notice to the Sender
+        ao.send({
+          Target = msg.Owner,
+          Action = 'Debit-Notice',
+          Recipient = msg.Recipient,
+          Quantity = tostring(qty),
+          Data = Colors.gray ..
+              "You transferred " ..
+              Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+        })
+        -- Send Credit-Notice to the Recipient
+        ao.send({
+          Target = msg.Recipient,
+          Action = 'Credit-Notice',
+          Sender = msg.Owner,
+          Quantity = tostring(qty),
+          Data = Colors.gray ..
+              "You received " ..
+              Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+        })
+      end
+    else
+      ao.send({
+        Target = msg.Owner,
+        Action = 'Transfer-Error',
+        ['Message-Id'] = msg.Id,
+        Error = 'Insufficient Balance!'
+      })
+    end
+  else
+    ao.send({
+      Target = msg.Owner,
+      Action = 'Transfer-Error',
+      ['Message-Id'] = msg.Id,
+      Error = 'Insufficient Allowance!'
+    })
+  end
+end
+
+function Mod.approve(msg)
+  assert(type(msg.Spender) == 'string', 'Spender is required!')
+  assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+  assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
+  if not Allowances[msg.From] then Allowances[msg.From] = {} end
+  Allowances[msg.From][msg.Spender] = msg.Quantity
+end
+
+function Mod.mint(msg)
   assert(type(msg.Quantity) == 'string', 'Quantity is required!')
   assert(bint.__lt(0, msg.Quantity), 'Quantity must be greater than zero!')
 
@@ -166,4 +203,18 @@ Handlers.add('mint', Handlers.utils.hasMatchingTag('Action', 'Mint'), function (
       Error = 'Only the Process Owner can mint new ' .. Ticker .. ' tokens!'
     })
   end
-end)
+end
+
+function Mod.init(msg)
+  assert(type(msg.Name) == 'string', 'Name is required!')
+  assert(type(msg.Ticker) == 'string', 'Ticker is required!')
+  assert(type(msg.Logo) == 'string', 'Logo is required!')
+  assert(type(msg.Denomination) == 'string', 'Denomination is required!')
+  assert(bint.__lt(0, msg.Denomination), 'Denomination must be greater than zero!')
+  Name = msg.Name
+  Ticker = msg.Ticker
+  Logo = msg.Logo
+  Denomination = bint(msg.Denomination)
+end
+
+return Mod
