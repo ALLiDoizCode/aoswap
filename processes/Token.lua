@@ -1,6 +1,6 @@
 local bint = require('.bint')(256)
 local ao = require('ao')
-local token = require('token')
+local token = require('./mods/token')
 
 if not Balances then Balances = { [ao.id] = tostring(bint(10000 * 1e12)) } end
 if not Allowances then Allowances = {} end
