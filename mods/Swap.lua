@@ -1,9 +1,8 @@
 local bint = require('.bint')(256)
 local ao = require('ao')
-local token = require('token')
 
 -- Function to provide liquidity to the pool
-function addLiquidity(amountToken1,provider)
+function addLiquidity(amountToken1, provider)
     -- Calculate proportionate amount of token2 needed
     local amountToken2 = calculateToken2Needed(amountToken1)
     local feeAmount = (amountToken1 + amountToken2) * FeeRate
@@ -20,7 +19,7 @@ function addLiquidity(amountToken1,provider)
 end
 
 -- Function to remove liquidity from the pool
-function removeLiquidity(amountLiquidity,provider)
+function removeLiquidity(amountLiquidity, provider)
     -- Calculate proportionate amounts of tokens to be withdrawn
     local token1Amount = (amountLiquidity / (token1 + token2)) * token1
     local token2Amount = (amountLiquidity / (token1 + token2)) * token2
@@ -29,8 +28,8 @@ function removeLiquidity(amountLiquidity,provider)
     -- Call Transfer to Transfer token2 to provider
 
     -- Update token balances
-    token1 = token1 - token1Amount
-    token2 = token2 - token2Amount
+    local token1 = token1 - token1Amount
+    local token2 = token2 - token2Amount
 
     -- Deduct liquidity amount for the provider
     LiquidityProviders[provider] = LiquidityProviders[provider] - amountLiquidity
@@ -70,27 +69,54 @@ function calculateToken2Needed(token1Amount)
     return token2Needed
 end
 
--- Function to reward liquidity providers
-function rewardLiquidityProviders(feeAmount)
+-- Function to caculate liquidity reward
+function calculateLiquidityRewards(provider)
+    if not LiquidityProviders[provider] then
+        LiquidityProviders[provider] = 0
+    end
+
+    local feeAmount = LiquidityProviders[provider]
+
     -- Calculate total liquidity in the pool
     local totalLiquidity = token1 + token2
-    
+
     -- Calculate the fee per unit of liquidity
     local feePerLiquidity = feeAmount / totalLiquidity
-    
+
     -- Distribute the fee proportionally among liquidity providers
     local token1Reward = feePerLiquidity * token1
     local token2Reward = feePerLiquidity * token2
-    
-    -- Update liquidity providers' balances (Assuming liquidity providers have accounts)
-    -- Example: 
-    -- liquidityProvider1.balance = liquidityProvider1.balance + token1Reward
-    -- liquidityProvider2.balance = liquidityProvider2.balance + token2Reward
-    
-    -- Alternatively, you can store rewards internally in the token pool itself
-    
-    -- Print rewards for demonstration purposes
-    print("Token1 Reward for Liquidity Providers:", token1Reward)
-    print("Token2 Reward for Liquidity Providers:", token2Reward)
 end
 
+-- Function to reward liquidity providers with fees
+function rewardLiquidityProviders(tradeAmount, tradeToken)
+    -- Calculate fee amount for the trade
+    local feeAmount = tradeAmount * FeeRate
+
+    -- Calculate the total liquidity pool value
+    local totalPoolValue = token1 + token2
+
+    -- Iterate through each liquidity provider
+    for provider, liquidityAmount in pairs(LiquidityProviders) do
+        -- Calculate the liquidity provider's share of the fees based on their liquidity contribution
+        local providerReward = feeAmount * liquidityAmount / totalPoolValue
+        -- Check the direction of the trade and distribute fees accordingly
+        if tradeToken == "token1" then
+            -- Reward liquidity provider with fees from trade of token1
+            ProvidersFees[provider]["token1"] = ProvidersFees[provider]["token1"] + providerReward
+        elseif tradeToken == "token2" then
+            -- Reward liquidity provider with fees from trade of token2
+            ProvidersFees[provider]["token2"] = ProvidersFees[provider]["token2"] + providerReward
+        end
+    end
+end
+
+-- Function for liquidity providers to claim their rewards
+function claimRewards(provider)
+    local token1 = ProvidersFees[provider]["token1"]
+    local token2 = ProvidersFees[provider]["token2"]
+    -- Call Transfer to transfer token1
+    -- Call Transfer to transfer token2
+    ProvidersFees[provider]["token1"] = 0
+    ProvidersFees[provider]["token2"] = 0
+end
