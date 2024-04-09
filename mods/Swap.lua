@@ -36,9 +36,19 @@ function removeLiquidity(amountLiquidity, provider)
 end
 
 -- Function to swap tokens given token1 amount
-function swapGivenToken1(token1Amount)
-    -- Calculate proportionate amount of token2 needed
-    local token2Needed = calculateToken2Needed(token1Amount)
+function swapGivenToken1(amountToken1,slippageToken1Threshold)
+    -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
+
+    -- Calculate expected amount of token2 to receive
+    local expectedAmountToken2 = (amountToken1 / token1) * token2
+    
+    -- Calculate slippage
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
+    
+    -- Check if slippage exceeds the threshold
+    if math.abs(slippageToken2) > slippageToken1Threshold then
+        return nil  -- Return nil to indicate swap failure
+    end
 
     -- Perform the swap
     -- Call TransferFrom to transfer token1
@@ -47,9 +57,19 @@ function swapGivenToken1(token1Amount)
 end
 
 -- Function to swap tokens given token2 amount
-function swapGivenToken2(token2Amount)
-    -- Calculate proportionate amount of token1 needed
-    local token1Needed = calculateToken1Needed(token2Amount)
+function swapGivenToken2(amountToken2,slippageToken1Threshold)
+    -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
+
+    -- Calculate expected amount of token1 to receive
+    local expectedAmountToken1 = (amountToken2 / token2) * token1
+    
+    -- Calculate slippage
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
+    
+    -- Check if slippage exceeds the threshold
+    if math.abs(slippageToken1) > slippageToken1Threshold then
+        return nil  -- Return nil to indicate swap failure
+    end
 
     -- Perform the swap
     -- Call TransferFrom to transfer token2
@@ -57,18 +77,22 @@ function swapGivenToken2(token2Amount)
     rewardLiquidityProviders(token2Amount, "token2")
 end
 
--- Function to calculate proportionate amount of token1 needed given token2
-function calculateToken1Needed(token2Amount)
-    local currentRatio = token1 / token2
-    local token1Needed = (token2Amount * currentRatio) / (1 + currentRatio)
-    return token1Needed
+-- Function to get estimate for slippage given token1
+function slippageGivenToken1(amountToken1)
+    -- Calculate expected amount of token1 to receive
+    local expectedAmountToken2 = (amountToken1 / token1) * token2
+    
+    -- Calculate slippage
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
 end
 
--- Function to calculate proportionate amount of token2 needed given token1
-function calculateToken2Needed(token1Amount)
-    local currentRatio = token1 / token2
-    local token2Needed = token1Amount / currentRatio
-    return token2Needed
+-- Function to get estimate for slippage given token2
+function slippageGivenToken2(amountToken2)
+    -- Calculate expected amount of token1 to receive
+    local expectedAmountToken1 = (amountToken2 / token2) * token1
+    
+    -- Calculate slippage
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
 end
 
 -- Function to caculate liquidity reward
