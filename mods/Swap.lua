@@ -1,8 +1,10 @@
 local bint = require('.bint')(256)
 local ao = require('ao')
 
+Mod = {}
+
 -- Function to provide liquidity to the pool
-function addLiquidity(amountToken1, provider)
+function Mod.addLiquidity(amountToken1, provider)
     -- Calculate proportionate amount of token2 needed
     local amountToken2 = calculateToken2Needed(amountToken1)
     local feeAmount = (amountToken1 + amountToken2) * FeeRate
@@ -19,7 +21,7 @@ function addLiquidity(amountToken1, provider)
 end
 
 -- Function to remove liquidity from the pool
-function removeLiquidity(amountLiquidity, provider)
+function Mod.removeLiquidity(amountLiquidity, provider)
     -- Calculate proportionate amounts of tokens to be withdrawn
     local token1Amount = (amountLiquidity / (token1 + token2)) * token1
     local token2Amount = (amountLiquidity / (token1 + token2)) * token2
@@ -36,7 +38,7 @@ function removeLiquidity(amountLiquidity, provider)
 end
 
 -- Function to swap tokens given token1 amount
-function swapGivenToken1(amountToken1,slippageToken1Threshold)
+function Mod.swapGivenToken1(amountToken1,slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token2 to receive
@@ -57,7 +59,7 @@ function swapGivenToken1(amountToken1,slippageToken1Threshold)
 end
 
 -- Function to swap tokens given token2 amount
-function swapGivenToken2(amountToken2,slippageToken1Threshold)
+function Mod.swapGivenToken2(amountToken2,slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token1 to receive
@@ -78,7 +80,7 @@ function swapGivenToken2(amountToken2,slippageToken1Threshold)
 end
 
 -- Function to get estimate for slippage given token1
-function slippageGivenToken1(amountToken1)
+function Mod.slippageGivenToken1(amountToken1)
     -- Calculate expected amount of token1 to receive
     local expectedAmountToken2 = (amountToken1 / token1) * token2
     
@@ -87,7 +89,7 @@ function slippageGivenToken1(amountToken1)
 end
 
 -- Function to get estimate for slippage given token2
-function slippageGivenToken2(amountToken2)
+function Mod.slippageGivenToken2(amountToken2)
     -- Calculate expected amount of token1 to receive
     local expectedAmountToken1 = (amountToken2 / token2) * token1
     
@@ -96,17 +98,17 @@ function slippageGivenToken2(amountToken2)
 end
 
 -- Function to caculate liquidity reward
-function liquidityFees(provider)
+function Mod.liquidityFees(provider)
     local token1 = ProvidersFees[provider]["token1"]
     local token2 = ProvidersFees[provider]["token2"]
 end
 
-function liquidityRewards(provider)
+function Mod.liquidityRewards(provider)
     local liquidity = LiquidityProviders[provider]
 end
 
 -- Function to reward liquidity providers with fees
-function rewardLiquidityProviders(tradeAmount, tradeToken)
+function Mod.rewardLiquidityProviders(tradeAmount, tradeToken)
     -- Calculate fee amount for the trade
     local feeAmount = tradeAmount * FeeRate
 
@@ -129,7 +131,7 @@ function rewardLiquidityProviders(tradeAmount, tradeToken)
 end
 
 -- Function for liquidity providers to claim their rewards
-function claimRewards(provider)
+function Mod.claimRewards(provider)
     local token1 = ProvidersFees[provider]["token1"]
     local token2 = ProvidersFees[provider]["token2"]
     -- Call Transfer to transfer token1
@@ -137,3 +139,45 @@ function claimRewards(provider)
     ProvidersFees[provider]["token1"] = 0
     ProvidersFees[provider]["token2"] = 0
 end
+
+function tranfer(token,recipient,quantity)
+    ao.send({
+      Target = token,
+      Action = "Transfer",
+      Recipient = recipient,
+      Quantity = tostring(quantity)
+    })()
+    
+  end
+  
+  function tranferFrom(token,ownerBalance,recipient,quantity)
+    ao.send({
+      Target = token,
+      Action = "TransferFrom",
+      OwnerBalance = ownerBalance,
+      Recipient = recipient,
+      Quantity = tostring(quantity)
+    })()
+    
+  end
+  
+  function allowance(token,target)
+    ao.send({
+      Target = token,
+      Action = "Allowance",
+      Spender = ao.id,
+      Tags = {Target = target}
+    })()
+    
+  end
+  
+  function balance(token,target)
+    ao.send({
+      Target = token,
+      Action = "Balance",
+      Tags = {Target = target}
+    })()
+    
+  end
+
+  return Mod
