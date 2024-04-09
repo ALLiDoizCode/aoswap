@@ -35,16 +35,6 @@ function removeLiquidity(amountLiquidity, provider)
     LiquidityProviders[provider] = LiquidityProviders[provider] - amountLiquidity
 end
 
--- Function to swap tokens given token2 amount
-function swapGivenToken2(token2Amount)
-    -- Calculate proportionate amount of token1 needed
-    local token1Needed = calculateToken1Needed(token2Amount)
-
-    -- Perform the swap
-    -- Call TransferFrom to transfer token2
-    -- Call Transfer to transfer token1
-end
-
 -- Function to swap tokens given token1 amount
 function swapGivenToken1(token1Amount)
     -- Calculate proportionate amount of token2 needed
@@ -53,6 +43,18 @@ function swapGivenToken1(token1Amount)
     -- Perform the swap
     -- Call TransferFrom to transfer token1
     -- Call Transfer to transfer token2
+    rewardLiquidityProviders(token1Amount, "token1")
+end
+
+-- Function to swap tokens given token2 amount
+function swapGivenToken2(token2Amount)
+    -- Calculate proportionate amount of token1 needed
+    local token1Needed = calculateToken1Needed(token2Amount)
+
+    -- Perform the swap
+    -- Call TransferFrom to transfer token2
+    -- Call Transfer to transfer token1
+    rewardLiquidityProviders(token2Amount, "token2")
 end
 
 -- Function to calculate proportionate amount of token1 needed given token2
@@ -70,22 +72,13 @@ function calculateToken2Needed(token1Amount)
 end
 
 -- Function to caculate liquidity reward
-function calculateLiquidityRewards(provider)
-    if not LiquidityProviders[provider] then
-        LiquidityProviders[provider] = 0
-    end
+function liquidityFees(provider)
+    local token1 = ProvidersFees[provider]["token1"]
+    local token2 = ProvidersFees[provider]["token2"]
+end
 
-    local feeAmount = LiquidityProviders[provider]
-
-    -- Calculate total liquidity in the pool
-    local totalLiquidity = token1 + token2
-
-    -- Calculate the fee per unit of liquidity
-    local feePerLiquidity = feeAmount / totalLiquidity
-
-    -- Distribute the fee proportionally among liquidity providers
-    local token1Reward = feePerLiquidity * token1
-    local token2Reward = feePerLiquidity * token2
+function liquidityRewards(provider)
+    local liquidity = LiquidityProviders[provider]
 end
 
 -- Function to reward liquidity providers with fees
