@@ -5,34 +5,45 @@ local crypto = require(".crypto");
 Mod = {}
 -- Function to provide liquidity to the pool
 function Mod.addLiquidity(msg)
-    -- Calculate proportionate amount of token2 needed
-    local amountToken2 = calculateToken2Needed(msg.amountToken1)
-    local feeAmount = (msg.amountToken1 + amountToken2) * FeeRate
+
+    local feeAmount = (msg.amountToken1 + msg.amountToken2) * FeeRate
 
     -- Build Message chain
     local _nonce = nonce()
     local nextNonce = nonce()
+    local lastNonce = nonce()
     local action = {
         caller = msg.caller,
-        Target = Token2,
+        Target = Token1,
         Action = "TransferFrom",
         Recipient = ao.id,
-        Quantity = tostring(amountToken2),
+        Quantity = tostring(msg.amountToken1),
         Nonce = _nonce,
         NextNonce = nextNonce,
         LastNonce = nil,
     }
     Actions[_nonce] = action
-    action = {
+    local nextAction = {
+        caller = msg.caller,
+        Target = Token2,
+        Action = "TransferFrom",
+        Recipient = ao.id,
+        Quantity = tostring(msg.amountToken2),
+        Nonce = _nonce,
+        NextNonce = nextNonce,
+        LastNonce = nil,
+    }
+    Actions[nextNonce] = nextAction
+    local lastAction = {
         caller = msg.caller,
         Action = "AddLiquidity",
         feeAmount = feeAmount,
-        Nonce = nextNonce,
+        Nonce = lastNonce,
         NextNonce = nil,
-        LastNonce = _nonce,
+        LastNonce = nextNonce,
     }
-    Actions[nextNonce] = action
-    tranferFrom(action)
+    Actions[lastNonce] = lastAction
+    TranferFrom(action)
 end
 
 -- Function to remove liquidity from the pool
@@ -75,7 +86,7 @@ function Mod.removeLiquidity(msg)
         LastNonce = nextNonce,
     }
     Actions[lastNonce] = lastAction
-    tranfer(action)
+    Tranfer(action)
 end
 
 -- Function to swap tokens given token1 amount
@@ -116,8 +127,8 @@ function Mod.swapGivenToken1(msg)
             LastNonce = _nonce,
         }
         Actions[nextNonce] = nextAction
-        tranferFrom(action)
-        rewardLiquidityProviders(msg.amountToken1, Token1)
+        TranferFrom(action)
+        RewardLiquidityProviders(msg.amountToken1, Token1)
     end
 end
 
@@ -159,8 +170,8 @@ function Mod.swapGivenToken2(msg)
             LastNonce = _nonce,
         }
         Actions[nextNonce] = nextAction
-        tranferFrom(action)
-        rewardLiquidityProviders(msg.amountToken2, Token2)
+        TranferFrom(action)
+        RewardLiquidityProviders(msg.amountToken2, Token2)
     end
 end
 
@@ -193,7 +204,7 @@ function Mod.liquidityRewards(provider)
 end
 
 -- Function to reward liquidity providers with fees
-function Mod.rewardLiquidityProviders(tradeAmount, tradeToken)
+function RewardLiquidityProviders(tradeAmount, tradeToken)
     -- Calculate fee amount for the trade
     local feeAmount = tradeAmount * FeeRate
 
@@ -239,7 +250,7 @@ function Mod.transferError(msg)
                 lastAction.Recipient = action.caller
                 lastAction.Action = "Transfer"
                 lastAction.Nonce = nil
-                tranfer(lastAction)
+                Tranfer(lastAction)
             end
         end
     end
@@ -255,7 +266,7 @@ function Mod.transferFromError(msg)
                 lastAction.Recipient = action.caller
                 lastAction.Action = "Transfer"
                 lastAction.Nonce = nil
-                tranfer(lastAction)
+                Tranfer(lastAction)
             end
         end
     end
@@ -267,7 +278,7 @@ function Mod.responseHandler(msg)
     else
         if msg.Nonce then
             local action = Actions[msg.Nonce]
-            actionHandler(action)
+            ActionHandler(action)
         end
     end
 end
@@ -293,14 +304,14 @@ function BalanceResponse(msg)
 end
 
 
-function actionHandler(action)
+function ActionHandler(action)
     if action.Action == "TransferFrom" then
-        tranferFrom(action)
-        balance(action.Target)
+        TranferFrom(action)
+        Balance(action.Target)
     end
     if action.Action == "Transfer" then
-        tranfer(action)
-        balance(action.Target)
+        Tranfer(action)
+        Balance(action.Target)
     end
     if action.Action == "AddLiquidity" then
         -- Store liquidity amount for the provider
@@ -317,15 +328,16 @@ function actionHandler(action)
     end
 end
 
-function tranfer(action)
+function Tranfer(action)
     ao.send(action)()
 end
 
-function tranferFrom(action)
+function TranferFrom(action)
+    action.OwnerId = action.caller
     ao.send(action)()
 end
 
-function balance(token)
+function Balance(token)
     ao.send({
         Target = token,
         Action = "Balance",
