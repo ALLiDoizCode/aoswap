@@ -16,4 +16,4 @@ Token1Balance = 0
 Token2Balance = 0
 
 Handlers.add("response", Handlers.utils.hasMatchingTag('Action', "Response"), swap.responseHandler)
-Handlers.add("errors", Handlers.utils.hasMatchingTag('Action', "Errors"), swap.responseHandler)
+Handlers.add("errors", Handlers.utils.hasMatchingTag('Action', "Errors"), swap.errors)
