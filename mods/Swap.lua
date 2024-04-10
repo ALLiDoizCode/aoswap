@@ -5,7 +5,6 @@ local crypto = require(".crypto");
 Mod = {}
 -- Function to provide liquidity to the pool
 function Mod.addLiquidity(msg)
-
     local feeAmount = (msg.amountToken1 + msg.amountToken2) * FeeRate
 
     -- Build Message chain
@@ -29,9 +28,9 @@ function Mod.addLiquidity(msg)
         Action = "TransferFrom",
         Recipient = ao.id,
         Quantity = tostring(msg.amountToken2),
-        Nonce = _nonce,
-        NextNonce = nextNonce,
-        LastNonce = nil,
+        Nonce = nextNonce,
+        NextNonce = lastNonce,
+        LastNonce = _nonce,
     }
     Actions[nextNonce] = nextAction
     local lastAction = {
@@ -73,7 +72,7 @@ function Mod.removeLiquidity(msg)
         Recipient = ao.id,
         Quantity = tostring(token2Amount),
         Nonce = nextNonce,
-        NextNonce = nil,
+        NextNonce = lastNonce,
         LastNonce = _nonce,
     }
     Actions[nextNonce] = nextAction
@@ -105,6 +104,7 @@ function Mod.swapGivenToken1(msg)
     else
         local _nonce = nonce()
         local nextNonce = nonce()
+        local lastNonce = nonce()
         local action = {
             caller = msg.caller,
             Target = Token1,
@@ -127,8 +127,17 @@ function Mod.swapGivenToken1(msg)
             LastNonce = _nonce,
         }
         Actions[nextNonce] = nextAction
+        local lastAction = {
+            caller = msg.caller,
+            Action = "RewardLiquidityProviders",
+            Target = Token1,
+            Quantity = msg.amountToken1,
+            Nonce = lastNonce,
+            NextNonce = nil,
+            LastNonce = nextNonce,
+        }
+        Actions[lastNonce] = lastAction
         TranferFrom(action)
-        RewardLiquidityProviders(msg.amountToken1, Token1)
     end
 end
 
@@ -148,6 +157,7 @@ function Mod.swapGivenToken2(msg)
     else
         local _nonce = nonce()
         local nextNonce = nonce()
+        local lastNonce = nonce()
         local action = {
             caller = msg.caller,
             Target = Token2,
@@ -170,43 +180,73 @@ function Mod.swapGivenToken2(msg)
             LastNonce = _nonce,
         }
         Actions[nextNonce] = nextAction
+        local lastAction = {
+            caller = msg.caller,
+            Action = "RewardLiquidityProviders",
+            Target = Token2,
+            Quantity = msg.amountToken2,
+            Nonce = lastNonce,
+            NextNonce = nil,
+            LastNonce = nextNonce,
+        }
+        Actions[lastNonce] = lastAction
         TranferFrom(action)
-        RewardLiquidityProviders(msg.amountToken2, Token2)
     end
 end
 
 -- Function to get estimate for slippage given token1
-function Mod.slippageGivenToken1(amountToken1)
+function Mod.slippageGivenToken1(msg)
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken2 = (amountToken1 / Token1Balance) * Token2Balance
-
+    local expectedAmountToken2 = (msg.amountToken1 / Token1Balance) * Token2Balance
     -- Calculate slippage
-    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / Token1Balance) * Token2Balance))
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((msg.amountToken1 / Token1Balance) * Token2Balance))
+    ao.send({
+        Target = msg.From,
+        Action = "SlippageToken2 ",
+        Data = tostring(slippageToken2) ,
+    })
 end
 
 -- Function to get estimate for slippage given token2
-function Mod.slippageGivenToken2(amountToken2)
+function Mod.slippageGivenToken2(msg)
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken1 = (amountToken2 / Token2Balance) * Token1Balance
-
+    local expectedAmountToken1 = (msg.amountToken2 / Token2Balance) * Token1Balance
     -- Calculate slippage
-    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / Token2Balance) * Token1Balance))
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((msg.amountToken2 / Token2Balance) * Token1Balance))
+    ao.send({
+        Target = msg.From,
+        Action = "SlippageToken2 ",
+        Data = tostring(slippageToken1) ,
+    })
 end
 
 -- Function to caculate liquidity reward
-function Mod.liquidityFees(provider)
-    local token1 = ProvidersFees[provider][Token1]
-    local token2 = ProvidersFees[provider][Token2]
+function Mod.liquidityFees(msg)
+    local token1 = ProvidersFees[msg.from][Token1]
+    local token2 = ProvidersFees[msg.from][Token2]
+    ao.send({
+        Target = msg.From,
+        Action = "liquidityFees ",
+        Data = {
+            Token1 = tostring(token1),
+            Token2 = tostring(token2),
+        }
+    })
 end
 
-function Mod.liquidityRewards(provider)
-    local liquidity = LiquidityProviders[provider]
+function Mod.liquidityRewards(msg)
+    local liquidity = LiquidityProviders[msg.from]
+    ao.send({
+        Target = msg.From,
+        Action = "liquidity ",
+        Data = tostring(liquidity),
+    })
 end
 
 -- Function to reward liquidity providers with fees
-function RewardLiquidityProviders(tradeAmount, tradeToken)
+function RewardLiquidityProviders(action)
     -- Calculate fee amount for the trade
-    local feeAmount = tradeAmount * FeeRate
+    local feeAmount = action.tradeAmount * FeeRate
 
     -- Calculate the total liquidity pool value
     local totalPoolValue = Token1Balance + Token2Balance
@@ -216,10 +256,10 @@ function RewardLiquidityProviders(tradeAmount, tradeToken)
         -- Calculate the liquidity provider's share of the fees based on their liquidity contribution
         local providerReward = feeAmount * liquidityAmount / totalPoolValue
         -- Check the direction of the trade and distribute fees accordingly
-        if tradeToken == Token1 then
+        if action.target == Token1 then
             -- Reward liquidity provider with fees from trade of token1
             ProvidersFees[provider][Token1] = ProvidersFees[provider][Token1] + providerReward
-        elseif tradeToken == Token2 then
+        elseif action.target == Token2 then
             -- Reward liquidity provider with fees from trade of token2
             ProvidersFees[provider][Token2] = ProvidersFees[provider][Token2] + providerReward
         end
@@ -227,13 +267,44 @@ function RewardLiquidityProviders(tradeAmount, tradeToken)
 end
 
 -- Function for liquidity providers to claim their rewards
-function Mod.claimRewards(provider)
-    local token1 = ProvidersFees[provider][Token1]
-    local token2 = ProvidersFees[provider][Token2]
-    -- Call Transfer to transfer token1
-    -- Call Transfer to transfer token2
-    ProvidersFees[provider][Token1] = 0
-    ProvidersFees[provider][Token2] = 0
+function Mod.claimRewards(msg)
+    local token1Amount = ProvidersFees[msg.from][Token1]
+    local token2Amount = ProvidersFees[msg.from][Token2]
+    
+    local _nonce = nonce()
+    local nextNonce = nonce()
+    local lastNonce = nonce()
+    local action = {
+        caller = msg.caller,
+        Target = Token1,
+        Action = "Transfer",
+        Recipient = msg.caller,
+        Quantity = tostring(token1Amount),
+        Nonce = _nonce,
+        NextNonce = nextNonce,
+        LastNonce = nil,
+    }
+    Actions[_nonce] = action
+    local nextAction = {
+        caller = msg.caller,
+        Target = Token2,
+        Action = "Transfer",
+        Recipient = msg.caller,
+        Quantity = tostring(token2Amount),
+        Nonce = nextNonce,
+        NextNonce = lastNonce,
+        LastNonce = _nonce,
+    }
+    Actions[nextNonce] = nextAction
+    local lastAction = {
+        caller = msg.caller,
+        Action = "ClaimRewards",
+        Nonce = lastNonce,
+        NextNonce = nil,
+        LastNonce = nextNonce,
+    }
+    Actions[lastNonce] = lastAction
+    Tranfer(action)
 end
 
 function Mod.errors(msg)
@@ -303,7 +374,6 @@ function BalanceResponse(msg)
     end
 end
 
-
 function ActionHandler(action)
     if action.Action == "TransferFrom" then
         TranferFrom(action)
@@ -325,6 +395,13 @@ function ActionHandler(action)
         -- Deduct liquidity amount for the provider
         LiquidityProviders[action.caller] = LiquidityProviders[action.caller] - action.Liquidity
         -- handle success
+    end
+    if action.Action == "ClaimRewards" then
+        ProvidersFees[action.caller][Token1] = 0
+        ProvidersFees[action.caller][Token2] = 0
+    end
+    if action.Action == "RewardLiquidityProviders" then
+        RewardLiquidityProviders(action)
     end
 end
 

@@ -118,23 +118,23 @@ function Mod.transfer(msg)
 end
 
 function Mod.transferFrom(msg)
-  assert(type(msg.OwnerProcessId) == 'string', 'OwnerProcessId is required!')
+  assert(type(msg.OwnerId) == 'string', 'OwnerId is required!')
   assert(type(msg.Recipient) == 'string', 'Recipient is required!')
   assert(type(msg.Quantity) == 'string', 'Quantity is required!')
   assert(bint.__lt(0, bint(msg.Quantity)), 'Quantity must be greater than 0')
 
-  if not Allowances[msg.OwnerProcessId] then Allowances[msg.OwnerProcessId] = {} end
-  if not Allowances[msg.OwnerProcessId][msg.from] then Allowances[msg.OwnerProcessId][msg.from] = 0 end
-  if not Balances[msg.OwnerProcessId] then Balances[msg.OwnerProcessId] = "0" end
+  if not Allowances[msg.OwnerId] then Allowances[msg.OwnerId] = {} end
+  if not Allowances[msg.OwnerId][msg.from] then Allowances[msg.OwnerId][msg.from] = 0 end
+  if not Balances[msg.OwnerId] then Balances[msg.OwnerId] = "0" end
   if not Balances[msg.Recipient] then Balances[msg.Recipient] = "0" end
 
   local qty = bint(msg.Quantity)
-  local allowance = bint(Allowances[msg.OwnerProcessId][msg.from])
-  local balance = bint(Balances[msg.OwnerProcessId])
+  local allowance = bint(Allowances[msg.OwnerId][msg.from])
+  local balance = bint(Balances[msg.OwnerId])
   if bint.__le(qty, allowance) then
     if bint.__le(qty, balance) then
-      Balances[msg.OwnerProcessId] = tostring(bint.__sub(balance, qty))
-      Allowances[msg.OwnerProcessId][msg.from] = tostring(bint.__sub(allowance, qty))
+      Balances[msg.OwnerId] = tostring(bint.__sub(balance, qty))
+      Allowances[msg.OwnerId][msg.from] = tostring(bint.__sub(allowance, qty))
       Balances[msg.Recipient] = tostring(bint.__add(Balances[msg.Recipient], qty))
 
       --[[
@@ -145,7 +145,7 @@ function Mod.transferFrom(msg)
       if not msg.Cast then
         -- Send Debit-Notice to the Owner
         ao.send({
-          Target = msg.OwnerProcessId,
+          Target = msg.OwnerId,
           Action = 'Response',
           Recipient = msg.Recipient,
           Quantity = tostring(qty),
@@ -158,7 +158,7 @@ function Mod.transferFrom(msg)
         ao.send({
           Target = msg.Recipient,
           Action = 'Response',
-          Sender = msg.OwnerProcessId,
+          Sender = msg.OwnerId,
           Quantity = tostring(qty),
           Data = Colors.gray ..
               "You received " ..
@@ -169,7 +169,7 @@ function Mod.transferFrom(msg)
     else
       ao.send({
         Target = msg.from,
-        OwnerProcessId = msg.OwnerProcessId,
+        OwnerId = msg.OwnerId,
         Action = 'TransferFrom-Error',
         ['Message-Id'] = msg.Id,
         Error = 'Insufficient Balance!',
@@ -179,7 +179,7 @@ function Mod.transferFrom(msg)
   else
     ao.send({
       Target = msg.from,
-      OwnerProcessId = msg.OwnerProcessId,
+      OwnerId = msg.OwnerId,
       Action = 'TransferFrom-Error',
       ['Message-Id'] = msg.Id,
       Error = 'Insufficient Allowance!',
