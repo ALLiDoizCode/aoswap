@@ -4,100 +4,164 @@ local json = require('json')
 local crypto = require(".crypto");
 Mod = {}
 -- Function to provide liquidity to the pool
-function Mod.addLiquidity(amountToken1, provider)
+function Mod.addLiquidity(msg)
     -- Calculate proportionate amount of token2 needed
-    local amountToken2 = calculateToken2Needed(amountToken1)
-    local feeAmount = (amountToken1 + amountToken2) * FeeRate
+    local amountToken2 = calculateToken2Needed(msg.amountToken1)
+    local feeAmount = (msg.amountToken1 + amountToken2) * FeeRate
 
     -- Build Message chain
     local _nonce = nonce()
     local nextNonce = nonce()
-    local data = {
-        caller = provider,
+    local action = {
+        caller = msg.caller,
         Target = Token2,
         Action = "TransferFrom",
         Recipient = ao.id,
         Quantity = tostring(amountToken2),
-        AmountToken1 = tostring(amountToken1),
-        Nonce = nextNonce,
+        Nonce = _nonce,
+        NextNonce = nextNonce,
+        LastNonce = nil,
     }
-    Data[_nonce] = data
-    data = {
-        caller = provider,
+    Actions[_nonce] = action
+    action = {
+        caller = msg.caller,
         Action = "AddLiquidity",
-        Provider = provider,
         feeAmount = feeAmount,
-        Nonce = nil,
+        Nonce = nextNonce,
+        NextNonce = nil,
+        LastNonce = _nonce,
     }
-    Data[nextNonce] = data
-    tranferFrom(Token1, provider, ao.id, amountToken1, _nonce)
+    Actions[nextNonce] = action
+    tranferFrom(action)
 end
 
 -- Function to remove liquidity from the pool
-function Mod.removeLiquidity(amountLiquidity, provider)
+function Mod.removeLiquidity(msg)
     -- Calculate proportionate amounts of tokens to be withdrawn
-    local token1Amount = (amountLiquidity / (Token1Balance + Token2Balance)) * Token1Balance
-    local token2Amount = (amountLiquidity / (Token1Balance + Token2Balance)) * Token2Balance
-
-    tranfer(Token1, provider, token1Amount)
-    tranfer(Token2, provider, token2Amount)
-
-    -- Deduct liquidity amount for the provider
-    LiquidityProviders[provider] = LiquidityProviders[provider] - amountLiquidity
-end
-
--- Function to swap tokens given token1 amount
-function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold, caller)
-    -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
-
-    -- Calculate expected amount of token2 to receive
-    local expectedAmountToken2 = (amountToken1 / Token1Balance) * Token2Balance
-
-    -- Calculate slippage
-    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / Token1Balance) * Token2Balance))
-
-    -- Check if slippage exceeds the threshold
-    if math.abs(slippageToken2) > slippageToken1Threshold then
-        return nil -- Return nil to indicate swap failure
-    end
+    local token1Amount = (msg.Liquidity / (Token1Balance + Token2Balance)) * Token1Balance
+    local token2Amount = (msg.Liquidity / (Token1Balance + Token2Balance)) * Token2Balance
 
     local _nonce = nonce()
-    local data = {
-        caller = caller,
+    local nextNonce = nonce()
+    local lastNonce = nonce()
+    local action = {
+        caller = msg.caller,
+        Target = Token1,
+        Action = "Transfer",
+        Recipient = ao.id,
+        Quantity = tostring(token1Amount),
+        Nonce = _nonce,
+        NextNonce = nextNonce,
+        LastNonce = nil,
+    }
+    Actions[_nonce] = action
+    local nextAction = {
+        caller = msg.caller,
         Target = Token2,
         Action = "Transfer",
         Recipient = ao.id,
-        Quantity = tostring(expectedAmountToken2),
-        AmountToken1 = tostring(amountToken1),
-        Nonce = _nonce,
+        Quantity = tostring(token2Amount),
+        Nonce = nextNonce,
+        NextNonce = nil,
+        LastNonce = _nonce,
     }
-    Data[_nonce] = data
-    tranferFrom(Token1, caller, ao.id, amountToken1, _nonce)
-    -- Perform the swap
-    -- Call TransferFrom to transfer token1
-    -- Call Transfer to transfer token2
-    rewardLiquidityProviders(amountToken1, Token1)
+    Actions[nextNonce] = nextAction
+    local lastAction = {
+        caller = msg.caller,
+        Action = "RemoveLiquidity",
+        Liquidity = msg.Liquidity,
+        Nonce = lastNonce,
+        NextNonce = nil,
+        LastNonce = nextNonce,
+    }
+    Actions[lastNonce] = lastAction
+    tranfer(action)
+end
+
+-- Function to swap tokens given token1 amount
+function Mod.swapGivenToken1(msg)
+    -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
+
+    -- Calculate expected amount of token2 to receive
+    local expectedAmountToken2 = (msg.amountToken1 / Token1Balance) * Token2Balance
+
+    -- Calculate slippage
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((msg.amountToken1 / Token1Balance) * Token2Balance))
+
+    -- Check if slippage exceeds the threshold
+    if math.abs(slippageToken2) > msg.slippageToken1Threshold then
+        -- slippage to high
+    else
+        local _nonce = nonce()
+        local nextNonce = nonce()
+        local action = {
+            caller = msg.caller,
+            Target = Token1,
+            Action = "TransferFrom",
+            Recipient = ao.id,
+            Quantity = tostring(msg.amountToken1),
+            Nonce = _nonce,
+            NextNonce = nextNonce,
+            LastNonce = nil,
+        }
+        Actions[_nonce] = action
+        local nextAction = {
+            caller = msg.caller,
+            Target = Token2,
+            Action = "Transfer",
+            Recipient = ao.id,
+            Quantity = tostring(expectedAmountToken2),
+            Nonce = nextNonce,
+            NextNonce = nil,
+            LastNonce = _nonce,
+        }
+        Actions[nextNonce] = nextAction
+        tranferFrom(action)
+        rewardLiquidityProviders(msg.amountToken1, Token1)
+    end
 end
 
 -- Function to swap tokens given token2 amount
-function Mod.swapGivenToken2(amountToken2, slippageToken1Threshold)
+function Mod.swapGivenToken2(msg)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken1 = (amountToken2 / Token2Balance) * Token1Balance
+    local expectedAmountToken1 = (msg.amountToken2 / Token2Balance) * Token1Balance
 
     -- Calculate slippage
-    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / Token2Balance) * Token1Balance))
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((msg.amountToken2 / Token2Balance) * Token1Balance))
 
     -- Check if slippage exceeds the threshold
-    if math.abs(slippageToken1) > slippageToken1Threshold then
-        return nil -- Return nil to indicate swap failure
+    if math.abs(slippageToken1) > msg.slippageToken1Threshold then
+        -- slippage to high
+    else
+        local _nonce = nonce()
+        local nextNonce = nonce()
+        local action = {
+            caller = msg.caller,
+            Target = Token2,
+            Action = "TransferFrom",
+            Recipient = ao.id,
+            Quantity = tostring(msg.amountToken2),
+            Nonce = _nonce,
+            NextNonce = nextNonce,
+            LastNonce = nil,
+        }
+        Actions[_nonce] = action
+        local nextAction = {
+            caller = msg.caller,
+            Target = Token1,
+            Action = "Transfer",
+            Recipient = ao.id,
+            Quantity = tostring(expectedAmountToken1),
+            Nonce = nextNonce,
+            NextNonce = nil,
+            LastNonce = _nonce,
+        }
+        Actions[nextNonce] = nextAction
+        tranferFrom(action)
+        rewardLiquidityProviders(msg.amountToken2, Token2)
     end
-
-    -- Perform the swap
-    -- Call TransferFrom to transfer token2
-    -- Call Transfer to transfer token1
-    rewardLiquidityProviders(token2Amount, Token2)
 end
 
 -- Function to get estimate for slippage given token1
@@ -165,15 +229,45 @@ function Mod.errors(msg)
     ao.send({ Target = msg.From, Errors = json.encode(Errors) })
 end
 
+function Mod.transferError(msg)
+    if Actions[msg.Nonce] then
+        local action = Actions[msg.Nonce]
+        if Actions[action.LastNonce] then
+            local lastAction = Actions[msg.LastNonce]
+            if lastAction.Action == "TransferFrom" then
+                --transfer back tokens
+                lastAction.Recipient = action.caller
+                lastAction.Action = "Transfer"
+                lastAction.Nonce = nil
+                tranfer(lastAction)
+            end
+        end
+    end
+end
+
+function Mod.transferFromError(msg)
+    if Actions[msg.Nonce] then
+        local action = Actions[msg.Nonce]
+        if Actions[action.LastNonce] then
+            local lastAction = Actions[msg.LastNonce]
+            if lastAction.Action == "TransferFrom" then
+                --transfer back tokens
+                lastAction.Recipient = action.caller
+                lastAction.Action = "Transfer"
+                lastAction.Nonce = nil
+                tranfer(lastAction)
+            end
+        end
+    end
+end
+
 function Mod.responseHandler(msg)
-    if msg.Error then
-        ErrorResponse(msg)
-    elseif msg.Balance then
+    if msg.Balance then
         BalanceResponse(msg)
     else
         if msg.Nonce then
-            local data = Data[msg.Nonce]
-            dataHandler(data, msg)
+            local action = Actions[msg.Nonce]
+            actionHandler(action)
         end
     end
 end
@@ -198,92 +292,37 @@ function BalanceResponse(msg)
     end
 end
 
---[[ function Mod.responseHandler(msg)
-    if msg.Error and not msg.Nonce then
-        -- Handle Errors
-    elseif msg.Balance then
-        if msg.from == Token1 then
-            Token1Balance = msg.Balance
-        end
-        if msg.from == Token2 then
-            Token2Balance = msg.Balance
-        end
-    else
-        if Data[msg.Nonce] then
-            local data = Data[msg.Nonce]
-            if msg.Error then
-                if msg.from == Token2 then
-                    --transfer back token1 amount
-                    tranfer(Token1, data.caller, data.AmountToken1)
-                elseif msg.from == Token2 then
-                end
-                ao.send({
-                    Target = data.caller,
-                    Action = 'Response',
-                    ['Message-Id'] = msg.Id,
-                    Error = msg.Error,
-                    Nonce = nil,
-                })
-            else
-                -- handle data
-                dataHandler(data, msg)
-            end
-        end
-    end
-end ]]
---
 
-function dataHandler(data, msg)
-    if data.Action == "TransferFrom" then
-        tranferFrom(data.Target, data.caller, data.Recipient, data.Quantity, data.Nonce)
+function actionHandler(action)
+    if action.Action == "TransferFrom" then
+        tranferFrom(action)
+        balance(action.Target)
     end
-    if data.Action == "Transfer" then
-        tranfer(data.Target, data.Recipient, data.Quantity)
-        balance(data.Target)
+    if action.Action == "Transfer" then
+        tranfer(action)
+        balance(action.Target)
     end
-    if data.Action == "AddLiquidity" then
-        -- get updated balances for Token1 and Token2
-        balance(Token1)
-        balance(Token2)
+    if action.Action == "AddLiquidity" then
         -- Store liquidity amount for the provider
-        if not LiquidityProviders[data.Provider] then
-            LiquidityProviders[data.Provider] = 0
+        if not LiquidityProviders[action.Provider] then
+            LiquidityProviders[action.Provider] = 0
         end
-        LiquidityProviders[data.Provider] = LiquidityProviders[data.Provider] + data.FeeAmount
+        LiquidityProviders[action.Provider] = LiquidityProviders[action.Provider] + action.FeeAmount
+        -- handle success
+    end
+    if action.Action == "RemoveLiquidity" then
+        -- Deduct liquidity amount for the provider
+        LiquidityProviders[action.caller] = LiquidityProviders[action.caller] - action.Liquidity
         -- handle success
     end
 end
 
-function tranfer(token, recipient, quantity, nonce)
-    ao.send({
-        Target = token,
-        Action = "Transfer",
-        Recipient = recipient,
-        Quantity = tostring(quantity),
-        Nonce = nonce,
-    })()
+function tranfer(action)
+    ao.send(action)()
 end
 
-function tranferFrom(token, ownerBalance, recipient, quantity, nonce)
-    ao.send({
-        Target = token,
-        Action = "TransferFrom",
-        OwnerBalance = ownerBalance,
-        Recipient = recipient,
-        Quantity = tostring(quantity),
-        Nonce = nonce,
-    })()
-end
-
-function allowance(token, target)
-    local _nonce = nonce()
-    ao.send({
-        Target = token,
-        Action = "Allowance",
-        Spender = ao.id,
-        Tags = { Target = target },
-        Nonce = _nonce,
-    })()
+function tranferFrom(action)
+    ao.send(action)()
 end
 
 function balance(token)
