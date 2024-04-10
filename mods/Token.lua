@@ -27,6 +27,7 @@ function Mod.balance(msg)
 
   ao.send({
     Target = msg.From,
+    Action = "Response",
     Balance = bal,
     Ticker = Ticker,
     Account = msg.Tags.Target or msg.From,
@@ -145,7 +146,7 @@ function Mod.transferFrom(msg)
         -- Send Debit-Notice to the Owner
         ao.send({
           Target = msg.OwnerBalance,
-          Action = 'Debit-Notice',
+          Action = 'Response',
           Recipient = msg.Recipient,
           Quantity = tostring(qty),
           Data = Colors.gray ..
@@ -156,7 +157,7 @@ function Mod.transferFrom(msg)
         -- Send Credit-Notice to the Recipient
         ao.send({
           Target = msg.Recipient,
-          Action = 'Credit-Notice',
+          Action = 'Response',
           Sender = msg.OwnerBalance,
           Quantity = tostring(qty),
           Data = Colors.gray ..

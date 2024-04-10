@@ -156,6 +156,13 @@ end
 function Mod.responseHandler(msg)
     if msg.Error then
         -- Handle Errors
+    elseif msg.Balance then
+        if msg.from == Token1 then
+            Token1Balance = msg.Balance
+        end
+        if msg.from == Token2 then
+            Token2Balance = msg.Balance
+        end
     else
         if not msg.Nonce then
             -- handle success
@@ -163,21 +170,22 @@ function Mod.responseHandler(msg)
             if Data[msg.Nonce] then
                 -- handle data
                 local data = Data[msg.Nonce]
-                dataHandler(data)
+                dataHandler(data, msg)
             end
         end
     end
 end
 
-function dataHandler(data)
+function dataHandler(data, msg)
     if data.Action == "TransferFrom" then
         tranferFrom(data.Target, data.OwnerBalance, data.Recipient, data.Quantity, data.Nonce)
     end
     if data.Action == "Transfer" then
     end
-    if data.Action == "Balance" then
-    end
     if data.Action == "AddLiquidity" then
+        -- get updated balances for Token1 and Token2
+        balance(Token1) 
+        balance(Token2)
         -- Store liquidity amount for the provider
         if not LiquidityProviders[data.Provider] then
             LiquidityProviders[data.Provider] = 0
@@ -220,14 +228,11 @@ function allowance(token, target)
     })()
 end
 
-function balance(token, target)
-    local _nonce = nonce()
-    Handlers.add(_nonce, Handlers.utils.hasMatchingTag('Action', 'Balance'), token.init)
+function balance(token)
     ao.send({
         Target = token,
         Action = "Balance",
-        Tags = { Target = target },
-        Nonce = _nonce,
+        Tags = { Target = ao.id },
     })()
 end
 
