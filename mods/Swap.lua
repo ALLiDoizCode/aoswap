@@ -1,23 +1,36 @@
 local bint = require('.bint')(256)
 local ao = require('ao')
-
+local json = require('json')
+local crypto = require(".crypto");
 Mod = {}
 
+local encrypted = crypto.cipher.issac.encrypt(message, key)
 -- Function to provide liquidity to the pool
 function Mod.addLiquidity(amountToken1, provider)
     -- Calculate proportionate amount of token2 needed
     local amountToken2 = calculateToken2Needed(amountToken1)
     local feeAmount = (amountToken1 + amountToken2) * FeeRate
 
-    -- Check Balances and Allowance for token1 and token2
-    -- Call TransferFrom to Transfer token1 to swap
-    -- Call TransferFrom to Transfer token2 to swap
-
-    -- Store liquidity amount for the provider
-    if not LiquidityProviders[provider] then
-        LiquidityProviders[provider] = 0
-    end
-    LiquidityProviders[provider] = LiquidityProviders[provider] + feeAmount
+    -- Build Message chain
+    local _nonce = nonce()
+    local nextNonce = nonce()
+    local data = {
+        Target = Token2,
+        Action = "TransferFrom",
+        OwnerBalance = provider,
+        Recipient = ao.id,
+        Quantity = tostring(amountToken2),
+        Nonce = nextNonce,
+    }
+    Data[_nonce] = data
+    data = {
+        Action = "AddLiquidity",
+        Provider = provider,
+        feeAmount = feeAmount,
+        Nonce = nil,
+    }
+    Data[nextNonce] = data
+    tranferFrom(Token1, provider, ao.id, amountToken1, _nonce)
 end
 
 -- Function to remove liquidity from the pool
@@ -38,18 +51,18 @@ function Mod.removeLiquidity(amountLiquidity, provider)
 end
 
 -- Function to swap tokens given token1 amount
-function Mod.swapGivenToken1(amountToken1,slippageToken1Threshold)
+function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token2 to receive
     local expectedAmountToken2 = (amountToken1 / token1) * token2
-    
+
     -- Calculate slippage
     local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
-    
+
     -- Check if slippage exceeds the threshold
     if math.abs(slippageToken2) > slippageToken1Threshold then
-        return nil  -- Return nil to indicate swap failure
+        return nil -- Return nil to indicate swap failure
     end
 
     -- Perform the swap
@@ -59,18 +72,18 @@ function Mod.swapGivenToken1(amountToken1,slippageToken1Threshold)
 end
 
 -- Function to swap tokens given token2 amount
-function Mod.swapGivenToken2(amountToken2,slippageToken1Threshold)
+function Mod.swapGivenToken2(amountToken2, slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token1 to receive
     local expectedAmountToken1 = (amountToken2 / token2) * token1
-    
+
     -- Calculate slippage
     local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
-    
+
     -- Check if slippage exceeds the threshold
     if math.abs(slippageToken1) > slippageToken1Threshold then
-        return nil  -- Return nil to indicate swap failure
+        return nil -- Return nil to indicate swap failure
     end
 
     -- Perform the swap
@@ -83,7 +96,7 @@ end
 function Mod.slippageGivenToken1(amountToken1)
     -- Calculate expected amount of token1 to receive
     local expectedAmountToken2 = (amountToken1 / token1) * token2
-    
+
     -- Calculate slippage
     local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
 end
@@ -92,7 +105,7 @@ end
 function Mod.slippageGivenToken2(amountToken2)
     -- Calculate expected amount of token1 to receive
     local expectedAmountToken1 = (amountToken2 / token2) * token1
-    
+
     -- Calculate slippage
     local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
 end
@@ -140,44 +153,87 @@ function Mod.claimRewards(provider)
     ProvidersFees[provider]["token2"] = 0
 end
 
-function tranfer(token,recipient,quantity)
-    ao.send({
-      Target = token,
-      Action = "Transfer",
-      Recipient = recipient,
-      Quantity = tostring(quantity)
-    })()
-    
-  end
-  
-  function tranferFrom(token,ownerBalance,recipient,quantity)
-    ao.send({
-      Target = token,
-      Action = "TransferFrom",
-      OwnerBalance = ownerBalance,
-      Recipient = recipient,
-      Quantity = tostring(quantity)
-    })()
-    
-  end
-  
-  function allowance(token,target)
-    ao.send({
-      Target = token,
-      Action = "Allowance",
-      Spender = ao.id,
-      Tags = {Target = target}
-    })()
-    
-  end
-  
-  function balance(token,target)
-    ao.send({
-      Target = token,
-      Action = "Balance",
-      Tags = {Target = target}
-    })()
-    
-  end
+function Mod.responseHandler(msg)
+    if msg.Error then
+        -- Handle Errors
+    else
+        if not msg.Nonce then
+            -- handle success
+        else
+            if Data[msg.Nonce] then
+                -- handle data
+                local data = Data[msg.Nonce]
+                dataHandler(data)
+            end
+        end
+    end
+end
 
-  return Mod
+function dataHandler(data)
+    if data.Action == "TransferFrom" then
+        tranferFrom(data.Target, data.OwnerBalance, data.Recipient, data.Quantity, data.Nonce)
+    end
+    if data.Action == "Transfer" then
+    end
+    if data.Action == "Balance" then
+    end
+    if data.Action == "AddLiquidity" then
+        -- Store liquidity amount for the provider
+        if not LiquidityProviders[data.Provider] then
+            LiquidityProviders[data.Provider] = 0
+        end
+        LiquidityProviders[data.Provider] = LiquidityProviders[data.Provider] + data.FeeAmount
+        -- handle success
+    end
+end
+
+function tranfer(token, recipient, quantity)
+    local _nonce = nonce()
+    ao.send({
+        Target = token,
+        Action = "Transfer",
+        Recipient = recipient,
+        Quantity = tostring(quantity),
+        Nonce = _nonce,
+    })()
+end
+
+function tranferFrom(token, ownerBalance, recipient, quantity, nonce)
+    ao.send({
+        Target = token,
+        Action = "TransferFrom",
+        OwnerBalance = ownerBalance,
+        Recipient = recipient,
+        Quantity = tostring(quantity),
+        Nonce = nonce,
+    })()
+end
+
+function allowance(token, target)
+    local _nonce = nonce()
+    ao.send({
+        Target = token,
+        Action = "Allowance",
+        Spender = ao.id,
+        Tags = { Target = target },
+        Nonce = _nonce,
+    })()
+end
+
+function balance(token, target)
+    local _nonce = nonce()
+    Handlers.add(_nonce, Handlers.utils.hasMatchingTag('Action', 'Balance'), token.init)
+    ao.send({
+        Target = token,
+        Action = "Balance",
+        Tags = { Target = target },
+        Nonce = _nonce,
+    })()
+end
+
+function nonce()
+    local v = tostring(math.random()):sub(-13)
+    return tostring(v)
+end
+
+return Mod

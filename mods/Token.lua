@@ -2,6 +2,7 @@ local bint = require('.bint')(256)
 local ao = require('ao')
 local json = require('json')
 
+
 Mod = {}
 function Mod.info(msg)
   ao.send({
@@ -9,7 +10,8 @@ function Mod.info(msg)
     Name = Name,
     Ticker = Ticker,
     Logo = Logo,
-    Denomination = tostring(Denomination)
+    Denomination = tostring(Denomination),
+    Nonce = msg.Nonce,
   })
 end
 
@@ -28,12 +30,13 @@ function Mod.balance(msg)
     Balance = bal,
     Ticker = Ticker,
     Account = msg.Tags.Target or msg.From,
-    Data = bal
+    Data = bal,
+    Nonce = msg.Nonce,
   })
 end
 
 function Mod.balances(msg)
-  ao.send({ Target = msg.From, Data = json.encode(Balances) })
+  ao.send({ Target = msg.From, Data = json.encode(Balances), Nonce = msg.Nonce, })
 end
 
 function Mod.allowance(msg)
@@ -50,12 +53,13 @@ function Mod.allowance(msg)
     Balance = bal,
     Ticker = Ticker,
     Account = msg.Tags.Target or msg.From,
-    Data = bal
+    Data = bal,
+    Nonce = msg.Nonce,
   })
 end
 
 function Mod.allowances(msg)
-  ao.send({ Target = msg.From, Data = json.encode(Allowances) })
+  ao.send({ Target = msg.From, Data = json.encode(Allowances), Nonce = msg.Nonce, })
 end
 
 function Mod.transfer(msg)
@@ -86,7 +90,8 @@ function Mod.transfer(msg)
         Quantity = tostring(qty),
         Data = Colors.gray ..
             "You transferred " ..
-            Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+            Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset,
+        Nonce = msg.Nonce,
       })
       -- Send Credit-Notice to the Recipient
       ao.send({
@@ -96,7 +101,8 @@ function Mod.transfer(msg)
         Quantity = tostring(qty),
         Data = Colors.gray ..
             "You received " ..
-            Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+            Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset,
+        Nonce = msg.Nonce,
       })
     end
   else
@@ -104,7 +110,8 @@ function Mod.transfer(msg)
       Target = msg.From,
       Action = 'Transfer-Error',
       ['Message-Id'] = msg.Id,
-      Error = 'Insufficient Balance!'
+      Error = 'Insufficient Balance!',
+      Nonce = msg.Nonce,
     })
   end
 end
@@ -143,7 +150,8 @@ function Mod.transferFrom(msg)
           Quantity = tostring(qty),
           Data = Colors.gray ..
               "You transferred " ..
-              Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset
+              Colors.blue .. msg.Quantity .. Colors.gray .. " to " .. Colors.green .. msg.Recipient .. Colors.reset,
+          Nonce = msg.Nonce,
         })
         -- Send Credit-Notice to the Recipient
         ao.send({
@@ -153,7 +161,8 @@ function Mod.transferFrom(msg)
           Quantity = tostring(qty),
           Data = Colors.gray ..
               "You received " ..
-              Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset
+              Colors.blue .. msg.Quantity .. Colors.gray .. " from " .. Colors.green .. msg.From .. Colors.reset,
+          Nonce = msg.Nonce,
         })
       end
     else
@@ -161,7 +170,8 @@ function Mod.transferFrom(msg)
         Target = msg.OwnerBalance,
         Action = 'TransferFrom-Error',
         ['Message-Id'] = msg.Id,
-        Error = 'Insufficient Balance!'
+        Error = 'Insufficient Balance!',
+        Nonce = msg.Nonce,
       })
     end
   else
@@ -169,7 +179,8 @@ function Mod.transferFrom(msg)
       Target = msg.OwnerBalance,
       Action = 'TransferFrom-Error',
       ['Message-Id'] = msg.Id,
-      Error = 'Insufficient Allowance!'
+      Error = 'Insufficient Allowance!',
+      Nonce = msg.Nonce,
     })
   end
 end
@@ -194,14 +205,16 @@ function Mod.mint(msg)
     Balances[msg.From] = tostring(bint.__add(Balances[Owner], msg.Quantity))
     ao.send({
       Target = msg.From,
-      Data = Colors.gray .. "Successfully minted " .. Colors.blue .. msg.Quantity .. Colors.reset
+      Data = Colors.gray .. "Successfully minted " .. Colors.blue .. msg.Quantity .. Colors.reset,
+      Nonce = msg.Nonce,
     })
   else
     ao.send({
       Target = msg.From,
       Action = 'Mint-Error',
       ['Message-Id'] = msg.Id,
-      Error = 'Only the Process Owner can mint new ' .. Ticker .. ' tokens!'
+      Error = 'Only the Process Owner can mint new ' .. Ticker .. ' tokens!',
+      Nonce = msg.Nonce,
     })
   end
 end
@@ -211,7 +224,7 @@ function Mod.setMinter(msg)
           Allows the Minter to set another processId as the Minter
           If the Minter wants to prevent any future mints they can set the processId to the processId of the token
         ]]
-      --
+  --
   assert(msg.from == Minter, 'Not Authorized')
   assert(type(msg.Minter) == 'string', 'Minter is required!')
   Minter = msg.Minter
@@ -225,7 +238,7 @@ function Mod.init(msg)
   assert(type(msg.Logo) == 'string', 'Logo is required!')
   assert(type(msg.Denomination) == 'string', 'Denomination is required!')
   assert(bint.__lt(0, msg.Denomination), 'Denomination must be greater than zero!')
-  
+
   assert(Minter == '', 'Not Authorized')
   assert(Name == '', 'Not Authorized')
   assert(Ticker == '', 'Not Authorized')
