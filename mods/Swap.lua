@@ -3,8 +3,6 @@ local ao = require('ao')
 local json = require('json')
 local crypto = require(".crypto");
 Mod = {}
-
-local encrypted = crypto.cipher.issac.encrypt(message, key)
 -- Function to provide liquidity to the pool
 function Mod.addLiquidity(amountToken1, provider)
     -- Calculate proportionate amount of token2 needed
@@ -15,15 +13,17 @@ function Mod.addLiquidity(amountToken1, provider)
     local _nonce = nonce()
     local nextNonce = nonce()
     local data = {
+        caller = provider,
         Target = Token2,
         Action = "TransferFrom",
-        OwnerBalance = provider,
         Recipient = ao.id,
         Quantity = tostring(amountToken2),
+        AmountToken1 = tostring(amountToken1),
         Nonce = nextNonce,
     }
     Data[_nonce] = data
     data = {
+        caller = provider,
         Action = "AddLiquidity",
         Provider = provider,
         feeAmount = feeAmount,
@@ -39,12 +39,8 @@ function Mod.removeLiquidity(amountLiquidity, provider)
     local token1Amount = (amountLiquidity / (token1 + token2)) * token1
     local token2Amount = (amountLiquidity / (token1 + token2)) * token2
 
-    -- Call Transfer to Transfer token1 to provider
-    -- Call Transfer to Transfer token2 to provider
-
-    -- Update token balances
-    local token1 = token1 - token1Amount
-    local token2 = token2 - token2Amount
+    tranfer(Token1, provider, token1Amount)
+    tranfer(Token2, provider, token2Amount)
 
     -- Deduct liquidity amount for the provider
     LiquidityProviders[provider] = LiquidityProviders[provider] - amountLiquidity
@@ -154,7 +150,7 @@ function Mod.claimRewards(provider)
 end
 
 function Mod.responseHandler(msg)
-    if msg.Error then
+    if msg.Error and not msg.Nonce then
         -- Handle Errors
     elseif msg.Balance then
         if msg.from == Token1 then
@@ -164,12 +160,23 @@ function Mod.responseHandler(msg)
             Token2Balance = msg.Balance
         end
     else
-        if not msg.Nonce then
-            -- handle success
-        else
-            if Data[msg.Nonce] then
+        if Data[msg.Nonce] then
+            local data = Data[msg.Nonce]
+            if msg.Error then
+                if msg.from == Token2 then
+                    --transfer back token1 amount
+                    tranfer(Token1, data.caller, data.AmountToken1)
+                elseif msg.from == Token2 then
+                end
+                ao.send({
+                    Target = data.caller,
+                    Action = 'Response',
+                    ['Message-Id'] = msg.Id,
+                    Error = msg.Error,
+                    Nonce = nil,
+                })
+            else
                 -- handle data
-                local data = Data[msg.Nonce]
                 dataHandler(data, msg)
             end
         end
@@ -178,14 +185,14 @@ end
 
 function dataHandler(data, msg)
     if data.Action == "TransferFrom" then
-        tranferFrom(data.Target, data.OwnerBalance, data.Recipient, data.Quantity, data.Nonce)
+        tranferFrom(data.Target, data.caller, data.Recipient, data.Quantity, data.Nonce)
     end
     if data.Action == "Transfer" then
-        balance(data.Token) 
+        balance(data.Token)
     end
     if data.Action == "AddLiquidity" then
         -- get updated balances for Token1 and Token2
-        balance(Token1) 
+        balance(Token1)
         balance(Token2)
         -- Store liquidity amount for the provider
         if not LiquidityProviders[data.Provider] then

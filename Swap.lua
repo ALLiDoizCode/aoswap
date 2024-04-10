@@ -11,4 +11,7 @@ FeeRate = 0.01 -- Fee rate (1% in this example)
 Token1 = ""
 Token2 = ""
 
+Token1Balance = 0
+Token2Balance = 0
+
 Handlers.add("response", Handlers.utils.hasMatchingTag('Action', "Response"), swap.responseHandler)
