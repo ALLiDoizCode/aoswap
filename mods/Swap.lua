@@ -181,6 +181,7 @@ function dataHandler(data, msg)
         tranferFrom(data.Target, data.OwnerBalance, data.Recipient, data.Quantity, data.Nonce)
     end
     if data.Action == "Transfer" then
+        balance(data.Token) 
     end
     if data.Action == "AddLiquidity" then
         -- get updated balances for Token1 and Token2
@@ -197,6 +198,11 @@ end
 
 function tranfer(token, recipient, quantity)
     local _nonce = nonce()
+    local data = {
+        Token = token,
+        Action = "Transfer",
+    }
+    Data[_nonce] = data
     ao.send({
         Target = token,
         Action = "Transfer",
