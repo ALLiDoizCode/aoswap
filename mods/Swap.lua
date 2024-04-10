@@ -36,8 +36,8 @@ end
 -- Function to remove liquidity from the pool
 function Mod.removeLiquidity(amountLiquidity, provider)
     -- Calculate proportionate amounts of tokens to be withdrawn
-    local token1Amount = (amountLiquidity / (token1 + token2)) * token1
-    local token2Amount = (amountLiquidity / (token1 + token2)) * token2
+    local token1Amount = (amountLiquidity / (Token1Balance + Token2Balance)) * Token1Balance
+    local token2Amount = (amountLiquidity / (Token1Balance + Token2Balance)) * Token2Balance
 
     tranfer(Token1, provider, token1Amount)
     tranfer(Token2, provider, token2Amount)
@@ -51,10 +51,10 @@ function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token2 to receive
-    local expectedAmountToken2 = (amountToken1 / token1) * token2
+    local expectedAmountToken2 = (amountToken1 / Token1Balance) * Token2Balance
 
     -- Calculate slippage
-    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / Token1Balance) * Token2Balance))
 
     -- Check if slippage exceeds the threshold
     if math.abs(slippageToken2) > slippageToken1Threshold then
@@ -64,7 +64,7 @@ function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold)
     -- Perform the swap
     -- Call TransferFrom to transfer token1
     -- Call Transfer to transfer token2
-    rewardLiquidityProviders(token1Amount, "token1")
+    rewardLiquidityProviders(token1Amount, Token1)
 end
 
 -- Function to swap tokens given token2 amount
@@ -72,10 +72,10 @@ function Mod.swapGivenToken2(amountToken2, slippageToken1Threshold)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken1 = (amountToken2 / token2) * token1
+    local expectedAmountToken1 = (amountToken2 / Token2Balance) * Token1Balance
 
     -- Calculate slippage
-    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / Token2Balance) * Token1Balance))
 
     -- Check if slippage exceeds the threshold
     if math.abs(slippageToken1) > slippageToken1Threshold then
@@ -85,31 +85,31 @@ function Mod.swapGivenToken2(amountToken2, slippageToken1Threshold)
     -- Perform the swap
     -- Call TransferFrom to transfer token2
     -- Call Transfer to transfer token1
-    rewardLiquidityProviders(token2Amount, "token2")
+    rewardLiquidityProviders(token2Amount, Token2)
 end
 
 -- Function to get estimate for slippage given token1
 function Mod.slippageGivenToken1(amountToken1)
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken2 = (amountToken1 / token1) * token2
+    local expectedAmountToken2 = (amountToken1 / Token1Balance) * Token2Balance
 
     -- Calculate slippage
-    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / token1) * token2))
+    local slippageToken2 = 1 - (expectedAmountToken2 / ((amountToken1 / Token1Balance) * Token2Balance))
 end
 
 -- Function to get estimate for slippage given token2
 function Mod.slippageGivenToken2(amountToken2)
     -- Calculate expected amount of token1 to receive
-    local expectedAmountToken1 = (amountToken2 / token2) * token1
+    local expectedAmountToken1 = (amountToken2 / Token2Balance) * Token1Balance
 
     -- Calculate slippage
-    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / token2) * token1))
+    local slippageToken1 = 1 - (expectedAmountToken1 / ((amountToken2 / Token2Balance) * Token1Balance))
 end
 
 -- Function to caculate liquidity reward
 function Mod.liquidityFees(provider)
-    local token1 = ProvidersFees[provider]["token1"]
-    local token2 = ProvidersFees[provider]["token2"]
+    local token1 = ProvidersFees[provider][Token1]
+    local token2 = ProvidersFees[provider][Token2]
 end
 
 function Mod.liquidityRewards(provider)
@@ -122,31 +122,31 @@ function Mod.rewardLiquidityProviders(tradeAmount, tradeToken)
     local feeAmount = tradeAmount * FeeRate
 
     -- Calculate the total liquidity pool value
-    local totalPoolValue = token1 + token2
+    local totalPoolValue = Token1Balance + Token2Balance
 
     -- Iterate through each liquidity provider
     for provider, liquidityAmount in pairs(LiquidityProviders) do
         -- Calculate the liquidity provider's share of the fees based on their liquidity contribution
         local providerReward = feeAmount * liquidityAmount / totalPoolValue
         -- Check the direction of the trade and distribute fees accordingly
-        if tradeToken == "token1" then
+        if tradeToken == Token1 then
             -- Reward liquidity provider with fees from trade of token1
-            ProvidersFees[provider]["token1"] = ProvidersFees[provider]["token1"] + providerReward
-        elseif tradeToken == "token2" then
+            ProvidersFees[provider][Token1] = ProvidersFees[provider][Token1] + providerReward
+        elseif tradeToken == Token2 then
             -- Reward liquidity provider with fees from trade of token2
-            ProvidersFees[provider]["token2"] = ProvidersFees[provider]["token2"] + providerReward
+            ProvidersFees[provider][Token2] = ProvidersFees[provider][Token2] + providerReward
         end
     end
 end
 
 -- Function for liquidity providers to claim their rewards
 function Mod.claimRewards(provider)
-    local token1 = ProvidersFees[provider]["token1"]
-    local token2 = ProvidersFees[provider]["token2"]
+    local token1 = ProvidersFees[provider][Token1]
+    local token2 = ProvidersFees[provider][Token2]
     -- Call Transfer to transfer token1
     -- Call Transfer to transfer token2
-    ProvidersFees[provider]["token1"] = 0
-    ProvidersFees[provider]["token2"] = 0
+    ProvidersFees[provider][Token1] = 0
+    ProvidersFees[provider][Token2] = 0
 end
 
 function Mod.responseHandler(msg)
