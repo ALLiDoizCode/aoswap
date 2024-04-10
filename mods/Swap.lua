@@ -47,7 +47,7 @@ function Mod.removeLiquidity(amountLiquidity, provider)
 end
 
 -- Function to swap tokens given token1 amount
-function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold)
+function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold, caller)
     -- ex slippageThreshold of 0.02, indicates a maximum allowable slippage of 2%.
 
     -- Calculate expected amount of token2 to receive
@@ -61,10 +61,22 @@ function Mod.swapGivenToken1(amountToken1, slippageToken1Threshold)
         return nil -- Return nil to indicate swap failure
     end
 
+    local _nonce = nonce()
+    local data = {
+        caller = caller,
+        Target = Token2,
+        Action = "Transfer",
+        Recipient = ao.id,
+        Quantity = tostring(expectedAmountToken2),
+        AmountToken1 = tostring(amountToken1),
+        Nonce = _nonce,
+    }
+    Data[_nonce] = data
+    tranferFrom(Token1, caller, ao.id, amountToken1, _nonce)
     -- Perform the swap
     -- Call TransferFrom to transfer token1
     -- Call Transfer to transfer token2
-    rewardLiquidityProviders(token1Amount, Token1)
+    rewardLiquidityProviders(amountToken1, Token1)
 end
 
 -- Function to swap tokens given token2 amount
@@ -149,7 +161,44 @@ function Mod.claimRewards(provider)
     ProvidersFees[provider][Token2] = 0
 end
 
+function Mod.errors(msg)
+    ao.send({ Target = msg.From, Errors = json.encode(Errors) })
+end
+
 function Mod.responseHandler(msg)
+    if msg.Error then
+        ErrorResponse(msg)
+    elseif msg.Balance then
+        BalanceResponse(msg)
+    else
+        if msg.Nonce then
+            local data = Data[msg.Nonce]
+            dataHandler(data, msg)
+        end
+    end
+end
+
+function ErrorResponse(msg)
+    if not msg.Target == ao.id then
+        ao.send({
+            Target = msg.Target,
+            Error = msg.Error,
+            ['Message-Id'] = msg['Message-Id'],
+        })()
+    end
+    Errors[msg.id] = msg
+end
+
+function BalanceResponse(msg)
+    if msg.from == Token1 then
+        Token1Balance = msg.Balance
+    end
+    if msg.from == Token2 then
+        Token2Balance = msg.Balance
+    end
+end
+
+--[[ function Mod.responseHandler(msg)
     if msg.Error and not msg.Nonce then
         -- Handle Errors
     elseif msg.Balance then
@@ -181,14 +230,16 @@ function Mod.responseHandler(msg)
             end
         end
     end
-end
+end ]]
+--
 
 function dataHandler(data, msg)
     if data.Action == "TransferFrom" then
         tranferFrom(data.Target, data.caller, data.Recipient, data.Quantity, data.Nonce)
     end
     if data.Action == "Transfer" then
-        balance(data.Token)
+        tranfer(data.Target, data.Recipient, data.Quantity)
+        balance(data.Target)
     end
     if data.Action == "AddLiquidity" then
         -- get updated balances for Token1 and Token2
@@ -203,19 +254,13 @@ function dataHandler(data, msg)
     end
 end
 
-function tranfer(token, recipient, quantity)
-    local _nonce = nonce()
-    local data = {
-        Token = token,
-        Action = "Transfer",
-    }
-    Data[_nonce] = data
+function tranfer(token, recipient, quantity, nonce)
     ao.send({
         Target = token,
         Action = "Transfer",
         Recipient = recipient,
         Quantity = tostring(quantity),
-        Nonce = _nonce,
+        Nonce = nonce,
     })()
 end
 
