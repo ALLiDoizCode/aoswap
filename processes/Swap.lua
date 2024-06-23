@@ -34,6 +34,7 @@ function swap(msg)
 end
 
 function _add (caller,amountA,amountB)
+    if not shares[caller] then shares[caller] = 0 end;
     _Share = 0;
     local isValidA = _isValid(caller,TokenAProcess,amountA)
     local isValidB = _isValid(caller,TokenBProcess,amountB)
@@ -50,8 +51,10 @@ function _add (caller,amountA,amountB)
     _substractBalance(caller,TokenBProcess,amountB);
     TokenA = TokenA + amountA;
     TokenB = TokenB + amountB;
-
-    ao.send({ Target = msg.From, Data = json.encode(Balances), Action = 'AddBox', Nonce = msg.Nonce, })
+    local _share = shares[caller];
+    shares[caller] = _share + _Share;
+    --[[figure out some message design pattern]]-- 
+    --ao.send({ Target = msg.From, Data = json.encode(Balances), Action = 'AddBox', Nonce = msg.Nonce, })
 end
 
 function _remove (msg)
