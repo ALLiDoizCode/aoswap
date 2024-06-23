@@ -1,6 +1,7 @@
 {
     "Lua.diagnostics.globals": [
         "Handlers",
-        "nonce"
+        "nonce",
+        "totalShares"
     ]
 }
