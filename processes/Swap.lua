@@ -33,15 +33,23 @@ function swap(msg)
     
 end
 
-function _add (self,caller,amountA,amountB)
+function _add (caller,amountA,amountB)
     _Share = 0;
-    _BalanceA = balances[TokenA][self];
-    _BalanceB = balances[TokenB][self];
-    local isValidA = _isValid(caller,TokenA,amountA)
-    local isValidB = _isValid(caller,TokenB,amountB)
+    local isValidA = _isValid(caller,TokenAProcess,amountA)
+    local isValidB = _isValid(caller,TokenBProcess,amountB)
     if(totalShares == 0) then _Share = 100 * precision end;
-    if(_BalanceA <= 0 or _BalanceB <= 0) then return end;--[[send some error-]]-- 
+    if(TokenA <= 0 or TokenB <= 0) then return end;--[[send some error-]]-- 
     if(isValidA == false or isValidB == false) then return end;--[[send some error-]]-- 
+    local estimateB = _getEquivalentTokenAEstimate(amountB);
+    if amountB ~= estimateB then return end;--[[send some error-]]-- 
+    local shareA = (totalShares * amountA) / TokenA;
+    local shareB = (totalShares * amountB) / TokenB;
+    if shareA ~= shareB then return end;--[[send some error-]]--
+    _Share = shareA;
+    _substractBalance(caller,TokenAProcess,amountA);
+    _substractBalance(caller,TokenBProcess,amountB);
+    TokenA = TokenA + amountA;
+    TokenB = TokenB + amountB;
 
     ao.send({ Target = msg.From, Data = json.encode(Balances), Action = 'AddBox', Nonce = msg.Nonce, })
 end
@@ -58,13 +66,18 @@ function _swapTokenB(caller,token,amount,slippage)
     
 end
 
-function getShares(msg)
-    
+function getRemoveEstimate(share)
+    local result = {}
+    if shares <= 0 then return end --[[send some error]]--
+    if share > totalShares then return end --[[send some error]]--
+    result.shareA = (share * TokenA) / totalShares;
+    result.shareB = (share * TokenB) / totalShares;
+    return result
 end
 
-function _isValid(caller,token,amount)
-    if not balances[token][caller] then token[TokenA][caller] = 0 end;
-    local balance = balances[token][caller];
+function _isValid(owner,token,amount)
+    if not balances[token][owner] then token[token][owner] = 0 end;
+    local balance = balances[token][owner];
     return amount > 0 and balance >= amount;
 end
 
@@ -94,4 +107,17 @@ end
 
 function _price()
     return TokenA * TokenB;
+end
+
+function _addBalance(owner,token,amount)
+    if not balances[token][owner] then token[token][owner] = 0 end;
+    local _balance =  balances[token][owner];
+    balances[token][owner] = _balance + amount;
+end
+
+function _substractBalance(owner,token,amount)
+    if not balances[token][owner] then token[token][owner] = 0 end;
+    local _balance =  balances[token][owner];
+    if amount > _balance then balances[token][owner] = 0 end;
+    balances[token][owner] = _balance - amount;
 end
