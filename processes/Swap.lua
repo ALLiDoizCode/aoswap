@@ -24,9 +24,13 @@ function Init(msg)
     ao.isTrusted(msg)
     assert(type(msg.TokenAProcess) == 'string', 'TokenAProcess is required!')
     assert(type(msg.TokenBProcess) == 'string', 'TokenBProcess is required!')
+    assert(type(msg.amountA) == 'string', 'amountA is required!')
+    assert(type(msg.amountB) == 'string', 'amountB is required!')
     
     TokenAProcess = msg.TokenAProcess;
     TokenBProcess = msg.TokenBProcess;
+
+    InitalLiquidity(msg.caller,msg.amountA,msg.amountB)
 end
 
 function Liquidity(msg)
@@ -88,6 +92,27 @@ function Balance(msg)
     else
         local _balance = balances[TokenBProcess][msg.caller];
     end
+end
+
+function InitalLiquidity (caller,amountA,amountB)
+    if not shares[caller] then shares[caller] = 0 end;
+    _Share = 0;
+    local isValidA = _IsValid(caller,TokenAProcess,amountA)
+    local isValidB = _IsValid(caller,TokenBProcess,amountB)
+    if(totalShares == 0) then _Share = 100 * precision end;
+    if(TokenA > 0 or TokenB > 0) then return end;--[[send some error-]]-- 
+    if(isValidA == false or isValidB == false) then return end;--[[send some error-]]-- 
+    local shareA = (totalShares * amountA) / TokenA;
+    local shareB = (totalShares * amountB) / TokenB;
+    if shareA ~= shareB then return end;--[[send some error-]]--
+    _Share = shareA;
+    _SubstractBalance(caller,TokenAProcess,amountA);
+    _SubstractBalance(caller,TokenBProcess,amountB);
+    TokenA = TokenA + amountA;
+    TokenB = TokenB + amountB;
+    local _share = shares[caller];
+    shares[caller] = _share + _Share;
+    totalShares = totalShares + _Share;
 end
 
 function _Add (caller,amountA,amountB)
