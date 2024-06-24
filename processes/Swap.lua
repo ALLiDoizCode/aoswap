@@ -47,10 +47,26 @@ function Withdraw(msg)
         local _balance = balances[TokenAProcess][msg.caller];
         if _balance < msg.Quantity then return end;--[[send some error-]]--
         balances[TokenAProcess][msg.caller] = _balance - msg.Quantity;
+        ao.send({
+            Target = TokenAProcess,
+            Tags = {
+                { name = "Action", value = "Transfer" },
+                { name = "Recipient", value = msg.Recipient },
+                { name = "Quantity", value = msg.Quantity },
+            }
+        });
     else
         local _balance = balances[TokenBProcess][msg.caller];
         if _balance < msg.Quantity then return end;--[[send some error-]]--
         balances[TokenBProcess][msg.caller] = _balance - msg.Quantity;
+        ao.send({
+            Target = TokenBProcess,
+            Tags = {
+                { name = "Action", value = "Transfer" },
+                { name = "Recipient", value = msg.Recipient },
+                { name = "Quantity", value = msg.Quantity },
+            }
+        });
     end
 end
 
@@ -190,4 +206,8 @@ function _SubstractBalance(owner,token,amount)
     local _balance =  balances[token][owner];
     if amount > _balance then balances[token][owner] = 0 end;
     balances[token][owner] = _balance - amount;
+end
+
+function FeeMachine()
+    --setup logic ot handle fee
 end
