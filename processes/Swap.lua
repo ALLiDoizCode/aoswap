@@ -35,7 +35,7 @@ function Init(msg)
 end
 
 function Liquidity(msg)
-    if isPump then end;--[[send some error-]]--
+    if isPump then return end;--[[send some error-]]--
     if msg.isAdd then
         _Add(msg.caller,msg.amountA,msg.amountB)
     else
