@@ -29,9 +29,9 @@ end
 
 function Swap(msg)
     if msg.isTokenA then
-        _SwapTokenA(msg)
+        _SwapTokenA(msg.caller,msg.amount,msg.slippage);
     else
-        _SwapTokenB(msg)
+        _SwapTokenB(msg.caller,msg.amount,msg.slippage);
     end
 end
 
