@@ -1,6 +1,7 @@
 local ao = require('ao')
 local json = require('json')
 
+if not tokenInfo then tokenInfo = {} end
 if not shares then shares = {} end
 if not balances then balances = {} end
 
@@ -15,12 +16,28 @@ local BondingCurve = 0;
 local TokenAProcess = "";
 local TokenBProcess = "";
 
-Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), Init)
-Handlers.add("liquidityBox", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), Liquidity);
-Handlers.add("swapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap);
+Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), Init)
+Handlers.add("LiquidityBox", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), Liquidity);
+Handlers.add("SwapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap);
 Handlers.add("WithdrawBox", Handlers.utils.hasMatchingTag('Action', "WithdrawBoc"), Withdraw);
 Handlers.add("BalanceBox", Handlers.utils.hasMatchingTag('Action', "BalanceBox"), Balance);
 Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), CreditNotice);
+Handlers.add("Info", Handlers.utils.hasMatchingTag('Action', "Info"), Info);
+
+
+
+function Info(msg)
+    if msg.from == TokenAProcess or msg.from == TokenBProcess then
+        local info = {
+            Target = msg.From,
+            Name = msg.Name,
+            Ticker = msg.Ticker,
+            Logo = msg.Logo,
+            Denomination = tostring(msg.Denomination)
+        };
+        tokenInfo[msg.from] = info;
+    end
+end
 
 function Init(msg)
     ao.isTrusted(msg)
@@ -28,7 +45,7 @@ function Init(msg)
     assert(type(msg.TokenBProcess) == 'string', 'TokenBProcess is required!')
     assert(type(msg.amountA) == 'string', 'amountA is required!')
     assert(type(msg.amountB) == 'string', 'amountB is required!')
-    assert(type(msg.bondingCurve) == 'string', 'bondingCurve is required!')
+    assert(type(msg.BondingCurve) == 'string', 'bondingCurve is required!')
     
     TokenAProcess = msg.TokenAProcess;
     TokenBProcess = msg.TokenBProcess;
@@ -96,8 +113,24 @@ function Balance(msg)
     if not balances[TokenBProcess][msg.caller] then balances[TokenBProcess][msg.caller] = 0 end;
     if msg.isTokenA then
         local _balance = balances[TokenAProcess][msg.caller];
+        ao.send({
+            Target = msg.From,
+            Action = "Response",
+            Balance = bal,
+            Ticker = Ticker,
+            Account = msg.Tags.Target or msg.From,
+            Nonce = msg.Nonce,
+          })
     else
         local _balance = balances[TokenBProcess][msg.caller];
+        ao.send({
+            Target = msg.From,
+            Action = "Response",
+            Balance = bal,
+            Ticker = Ticker,
+            Account = msg.Tags.Target or msg.From,
+            Nonce = msg.Nonce,
+          })
     end
 end
 
