@@ -6,18 +6,28 @@ if not balances then balances = {} end
 
 local totalShares = 0;
 local precision = 0;
-local FeeRate = 0.011 -- Fee rate (1% in this example)
+local FeeRate = 0.01 -- Fee rate (1% in this example)
 local TokenA = 0;
 local TokenB = 0;
 
 local TokenAProcess = "";
 local TokenBProcess = "";
 
+Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), Init)
 Handlers.add("liquidityBox", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), Liquidity);
 Handlers.add("swapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap);
 Handlers.add("WithdrawBox", Handlers.utils.hasMatchingTag('Action', "WithdrawBoc"), Withdraw);
 Handlers.add("BalanceBox", Handlers.utils.hasMatchingTag('Action', "BalanceBox"), Balance);
 Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), CreditNotice);
+
+function Init(msg)
+    ao.isTrusted(msg)
+    assert(type(msg.TokenAProcess) == 'string', 'TokenAProcess is required!')
+    assert(type(msg.TokenBProcess) == 'string', 'TokenBProcess is required!')
+    
+    TokenAProcess = msg.TokenAProcess;
+    TokenBProcess = msg.TokenBProcess;
+end
 
 function Liquidity(msg)
     if msg.isAdd then
