@@ -9,9 +9,9 @@ local precision = 0;
 local FeeRate = 0.01 -- Fee rate (1% in this example)
 local TokenA = 0;
 local TokenB = 0;
-local isPump = true; 
-local bondingCurve = 1000;
+local isPump = true;
 
+local BondingCurve = 0;
 local TokenAProcess = "";
 local TokenBProcess = "";
 
@@ -28,9 +28,11 @@ function Init(msg)
     assert(type(msg.TokenBProcess) == 'string', 'TokenBProcess is required!')
     assert(type(msg.amountA) == 'string', 'amountA is required!')
     assert(type(msg.amountB) == 'string', 'amountB is required!')
+    assert(type(msg.bondingCurve) == 'string', 'bondingCurve is required!')
     
     TokenAProcess = msg.TokenAProcess;
     TokenBProcess = msg.TokenBProcess;
+    BondingCurve = msg.BondingCurve;
 
     InitalLiquidity(msg.caller,msg.amountA,msg.amountB)
 end
@@ -51,7 +53,7 @@ function Swap(msg)
         _SwapTokenB(msg.caller,msg.amount,msg.slippage);
     end
     local _liquidity = _Liquidity();
-    if _liquidity >= bondingCurve then isPump = false end
+    if _liquidity >= BondingCurve then isPump = false end
 end
 
 function CreditNotice(msg)
