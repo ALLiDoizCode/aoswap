@@ -36,19 +36,19 @@ end
 function _Add (caller,amountA,amountB)
     if not shares[caller] then shares[caller] = 0 end;
     _Share = 0;
-    local isValidA = _isValid(caller,TokenAProcess,amountA)
-    local isValidB = _isValid(caller,TokenBProcess,amountB)
+    local isValidA = _IsValid(caller,TokenAProcess,amountA)
+    local isValidB = _IsValid(caller,TokenBProcess,amountB)
     if(totalShares == 0) then _Share = 100 * precision end;
     if(TokenA <= 0 or TokenB <= 0) then return end;--[[send some error-]]-- 
     if(isValidA == false or isValidB == false) then return end;--[[send some error-]]-- 
-    local estimateB = _getEquivalentTokenAEstimate(amountB);
+    local estimateB = _GetEquivalentTokenAEstimate(amountB);
     if amountB ~= estimateB then return end;--[[send some error-]]-- 
     local shareA = (totalShares * amountA) / TokenA;
     local shareB = (totalShares * amountB) / TokenB;
     if shareA ~= shareB then return end;--[[send some error-]]--
     _Share = shareA;
-    _substractBalance(caller,TokenAProcess,amountA);
-    _substractBalance(caller,TokenBProcess,amountB);
+    _SubstractBalance(caller,TokenAProcess,amountA);
+    _SubstractBalance(caller,TokenBProcess,amountB);
     TokenA = TokenA + amountA;
     TokenB = TokenB + amountB;
     local _share = shares[caller];
@@ -63,13 +63,13 @@ function _Remove (caller,share)
     if totalShares <= 0 then return end;--[[send some error-]]--
     _Share = shares[caller];
     if _Share < share then return end;--[[send some error-]]--
-    local estimate = getRemoveEstimate(share);
+    local estimate = GetRemoveEstimate(share);
     if estimate.shareA <= 0 and estimate.shareB <= 0 then return end;--[[send some error-]]--
     if TokenA < estimate.shareA then return end;--[[send some error-]]--
     if TokenB < estimate.shareB then return end;--[[send some error-]]--
     shares[caller] = _Share - share;
-    _addBalance(caller,TokenAProcess,estimate.shareA);
-    _addBalance(caller,TokenBProcess,estimate.shareB);
+    _AddBalance(caller,TokenAProcess,estimate.shareA);
+    _AddBalance(caller,TokenBProcess,estimate.shareB);
     totalShares = totalShares + share;
 end
 
