@@ -27,16 +27,14 @@ Handlers.add("Info", Handlers.utils.hasMatchingTag('Action', "Info"), Info);
 
 
 function Info(msg)
-    if msg.from == TokenAProcess or msg.from == TokenBProcess then
-        local info = {
-            Target = msg.From,
-            Name = msg.Name,
-            Ticker = msg.Ticker,
-            Logo = msg.Logo,
-            Denomination = tostring(msg.Denomination)
-        };
-        tokenInfo[msg.from] = info;
-    end
+    local info = {
+        Target = msg.From,
+        Name = msg.Name,
+        Ticker = msg.Ticker,
+        Logo = msg.Logo,
+        Denomination = tostring(msg.Denomination)
+    };
+    tokenInfo[msg.from] = info;
 end
 
 function Init(msg)
@@ -46,28 +44,28 @@ function Init(msg)
     assert(type(msg.amountA) == 'string', 'amountA is required!')
     assert(type(msg.amountB) == 'string', 'amountB is required!')
     assert(type(msg.BondingCurve) == 'string', 'bondingCurve is required!')
-    
+
     TokenAProcess = msg.TokenAProcess;
     TokenBProcess = msg.TokenBProcess;
     BondingCurve = msg.BondingCurve;
 
-    InitalLiquidity(msg.caller,msg.amountA,msg.amountB)
+    InitalLiquidity(msg.caller, msg.amountA, msg.amountB)
 end
 
 function Liquidity(msg)
-    if isPump then return end;--[[send some error-]]--
+    if isPump then return end; --[[send some error-]] --
     if msg.isAdd then
-        _Add(msg.caller,msg.amountA,msg.amountB)
+        _Add(msg.caller, msg.amountA, msg.amountB)
     else
-        _Remove(msg.caller,msg.share)
+        _Remove(msg.caller, msg.share)
     end
 end
 
 function Swap(msg)
     if msg.isTokenA then
-        _SwapTokenA(msg.caller,msg.amount,msg.slippage);
+        _SwapTokenA(msg.caller, msg.amount, msg.slippage);
     else
-        _SwapTokenB(msg.caller,msg.amount,msg.slippage);
+        _SwapTokenB(msg.caller, msg.amount, msg.slippage);
     end
     local _liquidity = _Liquidity();
     if _liquidity >= BondingCurve then isPump = false end
@@ -83,26 +81,26 @@ function Withdraw(msg)
 
     if msg.isTokenA then
         local _balance = balances[TokenAProcess][msg.caller];
-        if _balance < msg.Quantity then return end;--[[send some error-]]--
+        if _balance < msg.Quantity then return end; --[[send some error-]] --
         balances[TokenAProcess][msg.caller] = _balance - msg.Quantity;
         ao.send({
             Target = TokenAProcess,
             Tags = {
-                { name = "Action", value = "Transfer" },
+                { name = "Action",    value = "Transfer" },
                 { name = "Recipient", value = msg.Recipient },
-                { name = "Quantity", value = msg.Quantity },
+                { name = "Quantity",  value = msg.Quantity },
             }
         });
     else
         local _balance = balances[TokenBProcess][msg.caller];
-        if _balance < msg.Quantity then return end;--[[send some error-]]--
+        if _balance < msg.Quantity then return end; --[[send some error-]] --
         balances[TokenBProcess][msg.caller] = _balance - msg.Quantity;
         ao.send({
             Target = TokenBProcess,
             Tags = {
-                { name = "Action", value = "Transfer" },
+                { name = "Action",    value = "Transfer" },
                 { name = "Recipient", value = msg.Recipient },
-                { name = "Quantity", value = msg.Quantity },
+                { name = "Quantity",  value = msg.Quantity },
             }
         });
     end
@@ -111,43 +109,33 @@ end
 function Balance(msg)
     if not balances[TokenAProcess][msg.caller] then balances[TokenAProcess][msg.caller] = 0 end;
     if not balances[TokenBProcess][msg.caller] then balances[TokenBProcess][msg.caller] = 0 end;
-    if msg.isTokenA then
-        local _balance = balances[TokenAProcess][msg.caller];
-        ao.send({
-            Target = msg.From,
-            Action = "Response",
-            Balance = bal,
-            Ticker = Ticker,
-            Account = msg.Tags.Target or msg.From,
-            Nonce = msg.Nonce,
-          })
-    else
-        local _balance = balances[TokenBProcess][msg.caller];
-        ao.send({
-            Target = msg.From,
-            Action = "Response",
-            Balance = bal,
-            Ticker = Ticker,
-            Account = msg.Tags.Target or msg.From,
-            Nonce = msg.Nonce,
-          })
-    end
+    local _balanceA = balances[TokenAProcess][msg.caller];
+    local _balanceB = balances[TokenBProcess][msg.caller];
+    ao.send({
+        Target = msg.From,
+        Action = "Balance",
+        BalanceA = _balanceA,
+        BalanceB = _balanceB,
+        TokenA = tokenInfo[TokenA],
+        TokenB = tokenInfo[TokenB],
+        Account = msg.Tags.Target or msg.From,
+    })
 end
 
-function InitalLiquidity (caller,amountA,amountB)
+function InitalLiquidity(caller, amountA, amountB)
     if not shares[caller] then shares[caller] = 0 end;
     _Share = 0;
-    local isValidA = _IsValid(caller,TokenAProcess,amountA)
-    local isValidB = _IsValid(caller,TokenBProcess,amountB)
-    if(totalShares == 0) then _Share = 100 * precision end;
-    if(TokenA > 0 or TokenB > 0) then return end;--[[send some error-]]-- 
-    if(isValidA == false or isValidB == false) then return end;--[[send some error-]]-- 
+    local isValidA = _IsValid(caller, TokenAProcess, amountA)
+    local isValidB = _IsValid(caller, TokenBProcess, amountB)
+    if (totalShares == 0) then _Share = 100 * precision end;
+    if (TokenA > 0 or TokenB > 0) then return end; --[[send some error-]]             --
+    if (isValidA == false or isValidB == false) then return end; --[[send some error-]] --
     local shareA = (totalShares * amountA) / TokenA;
     local shareB = (totalShares * amountB) / TokenB;
-    if shareA ~= shareB then return end;--[[send some error-]]--
+    if shareA ~= shareB then return end; --[[send some error-]] --
     _Share = shareA;
-    _SubstractBalance(caller,TokenAProcess,amountA);
-    _SubstractBalance(caller,TokenBProcess,amountB);
+    _SubstractBalance(caller, TokenAProcess, amountA);
+    _SubstractBalance(caller, TokenBProcess, amountB);
     TokenA = TokenA + amountA;
     TokenB = TokenB + amountB;
     local _share = shares[caller];
@@ -155,100 +143,98 @@ function InitalLiquidity (caller,amountA,amountB)
     totalShares = totalShares + _Share;
 end
 
-function _Add (caller,amountA,amountB)
+function _Add(caller, amountA, amountB)
     if not shares[caller] then shares[caller] = 0 end;
     _Share = 0;
-    local isValidA = _IsValid(caller,TokenAProcess,amountA)
-    local isValidB = _IsValid(caller,TokenBProcess,amountB)
-    if(totalShares == 0) then _Share = 100 * precision end;
-    if(TokenA <= 0 or TokenB <= 0) then return end;--[[send some error-]]-- 
-    if(isValidA == false or isValidB == false) then return end;--[[send some error-]]-- 
+    local isValidA = _IsValid(caller, TokenAProcess, amountA)
+    local isValidB = _IsValid(caller, TokenBProcess, amountB)
+    if (totalShares == 0) then _Share = 100 * precision end;
+    if (TokenA <= 0 or TokenB <= 0) then return end; --[[send some error-]]           --
+    if (isValidA == false or isValidB == false) then return end; --[[send some error-]] --
     local estimateB = _GetEquivalentTokenAEstimate(amountB);
-    if amountB ~= estimateB then return end;--[[send some error-]]-- 
+    if amountB ~= estimateB then return end; --[[send some error-]]                   --
     local shareA = (totalShares * amountA) / TokenA;
     local shareB = (totalShares * amountB) / TokenB;
-    if shareA ~= shareB then return end;--[[send some error-]]--
+    if shareA ~= shareB then return end; --[[send some error-]] --
     _Share = shareA;
-    _SubstractBalance(caller,TokenAProcess,amountA);
-    _SubstractBalance(caller,TokenBProcess,amountB);
+    _SubstractBalance(caller, TokenAProcess, amountA);
+    _SubstractBalance(caller, TokenBProcess, amountB);
     TokenA = TokenA + amountA;
     TokenB = TokenB + amountB;
     local _share = shares[caller];
     shares[caller] = _share + _Share;
     totalShares = totalShares + _Share;
-    --[[figure out some message design pattern]]-- 
+    --[[figure out some message design pattern]] --
     --ao.send({ Target = msg.From, Data = json.encode(Balances), Action = 'AddBox', Nonce = msg.Nonce, })
 end
 
-function _Remove (caller,share)
+function _Remove(caller, share)
     if not shares[caller] then shares[caller] = 0 end;
-    if totalShares <= 0 then return end;--[[send some error-]]--
+    if totalShares <= 0 then return end; --[[send some error-]]                             --
     _Share = shares[caller];
-    if _Share < share then return end;--[[send some error-]]--
+    if _Share < share then return end; --[[send some error-]]                               --
     local estimate = GetRemoveEstimate(share);
-    if estimate.shareA <= 0 and estimate.shareB <= 0 then return end;--[[send some error-]]--
-    if TokenA < estimate.shareA then return end;--[[send some error-]]--
-    if TokenB < estimate.shareB then return end;--[[send some error-]]--
+    if estimate.shareA <= 0 and estimate.shareB <= 0 then return end; --[[send some error-]] --
+    if TokenA < estimate.shareA then return end; --[[send some error-]]                     --
+    if TokenB < estimate.shareB then return end; --[[send some error-]]                     --
     shares[caller] = _Share - share;
-    _AddBalance(caller,TokenAProcess,estimate.shareA);
-    _AddBalance(caller,TokenBProcess,estimate.shareB);
+    _AddBalance(caller, TokenAProcess, estimate.shareA);
+    _AddBalance(caller, TokenBProcess, estimate.shareB);
     totalShares = totalShares + share;
 end
 
-function _SwapTokenA(caller,amount,slippage)
-    if totalShares <= 0 then return end;--[[send some error-]]--
+function _SwapTokenA(caller, amount, slippage)
+    if totalShares <= 0 then return end; --[[send some error-]]    --
     local estimate = _GetSwapTokenAEstimate(amount);
-    if estimate <= slippage then return end;--[[send some error-]]--
-    if TokenB <= 0 then return end;--[[send some error-]]--
-    if TokenB < estimate then return end;--[[send some error-]]--
-    local isValid = _IsValid(caller,TokenAProcess,amount)
-    if isValid ~= false then return end;--[[send some error-]]--
-    _SubstractBalance(caller,TokenAProcess,amount);
-    _AddBalance(caller,TokenBProcess,estimate);
+    if estimate <= slippage then return end; --[[send some error-]] --
+    if TokenB <= 0 then return end; --[[send some error-]]         --
+    if TokenB < estimate then return end; --[[send some error-]]   --
+    local isValid = _IsValid(caller, TokenAProcess, amount)
+    if isValid ~= false then return end; --[[send some error-]]    --
+    _SubstractBalance(caller, TokenAProcess, amount);
+    _AddBalance(caller, TokenBProcess, estimate);
     TokenA = TokenA + amount;
     TokenB = TokenB - estimate;
-    
 end
 
-function _SwapTokenB(caller,amount,slippage)
-    if totalShares <= 0 then return end;--[[send some error-]]--
+function _SwapTokenB(caller, amount, slippage)
+    if totalShares <= 0 then return end; --[[send some error-]]    --
     local estimate = _GetSwapTokenBEstimate(amount);
-    if estimate <= slippage then return end;--[[send some error-]]--
-    if TokenA <= 0 then return end;--[[send some error-]]--
-    if TokenA < estimate then return end;--[[send some error-]]--
-    local isValid = _IsValid(caller,TokenBProcess,amount)
-    if isValid ~= false then return end;--[[send some error-]]--
-    _SubstractBalance(caller,TokenBProcess,amount);
-    _AddBalance(caller,TokenAProcess,estimate);
+    if estimate <= slippage then return end; --[[send some error-]] --
+    if TokenA <= 0 then return end; --[[send some error-]]         --
+    if TokenA < estimate then return end; --[[send some error-]]   --
+    local isValid = _IsValid(caller, TokenBProcess, amount)
+    if isValid ~= false then return end; --[[send some error-]]    --
+    _SubstractBalance(caller, TokenBProcess, amount);
+    _AddBalance(caller, TokenAProcess, estimate);
     TokenB = TokenB + amount;
     TokenA = TokenA - estimate;
-    
 end
 
 function GetRemoveEstimate(share)
     local result = {};
     result.shareA = 0;
     result.shareB = 0;
-    if shares <= 0 then return end --[[send some error]]--
-    if share > totalShares then return end --[[send some error]]--
+    if shares <= 0 then return end --[[send some error]]         --
+    if share > totalShares then return end --[[send some error]] --
     result.shareA = (share * TokenA) / totalShares;
     result.shareB = (share * TokenB) / totalShares;
     return result
 end
 
-function _IsValid(owner,token,amount)
+function _IsValid(owner, token, amount)
     if not balances[token][owner] then token[token][owner] = 0 end;
     local balance = balances[token][owner];
     return amount > 0 and balance >= amount;
 end
 
 function _GetEquivalentTokenAEstimate(amountB)
-    if shares <= 0 then return end --[[send some error]]--
+    if shares <= 0 then return end --[[send some error]] --
     return (TokenA * amountB) / TokenB
 end
 
 function _getEquivalentTokenBEstimate(amountA)
-    if shares <= 0 then return end --[[send some error]]--
+    if shares <= 0 then return end --[[send some error]] --
     return (TokenB * amountA) / TokenA
 end
 
@@ -270,15 +256,15 @@ function _Price()
     return TokenA * TokenB;
 end
 
-function _AddBalance(owner,token,amount)
+function _AddBalance(owner, token, amount)
     if not balances[token][owner] then token[token][owner] = 0 end;
-    local _balance =  balances[token][owner];
+    local _balance = balances[token][owner];
     balances[token][owner] = _balance + amount;
 end
 
-function _SubstractBalance(owner,token,amount)
+function _SubstractBalance(owner, token, amount)
     if not balances[token][owner] then token[token][owner] = 0 end;
-    local _balance =  balances[token][owner];
+    local _balance = balances[token][owner];
     if amount > _balance then balances[token][owner] = 0 end;
     balances[token][owner] = _balance - amount;
 end
