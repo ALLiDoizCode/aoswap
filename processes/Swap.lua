@@ -10,6 +10,7 @@ local FeeRate = 0.01 -- Fee rate (1% in this example)
 local TokenA = 0;
 local TokenB = 0;
 local isPump = true; 
+local bondingCurve = 1000;
 
 local TokenAProcess = "";
 local TokenBProcess = "";
@@ -49,6 +50,8 @@ function Swap(msg)
     else
         _SwapTokenB(msg.caller,msg.amount,msg.slippage);
     end
+    local _liquidity = _Liquidity();
+    if _liquidity >= bondingCurve then isPump = false end
 end
 
 function CreditNotice(msg)
@@ -243,6 +246,13 @@ function _SubstractBalance(owner,token,amount)
     local _balance =  balances[token][owner];
     if amount > _balance then balances[token][owner] = 0 end;
     balances[token][owner] = _balance - amount;
+end
+
+function _Liquidity()
+    if TokenA == 0 and TokenB == 0 then return 0 end;
+    local _price = TokenB / TokenA;
+    local amount = _price * TokenA;
+    return amount + TokenB;
 end
 
 function FeeMachine()
