@@ -18,6 +18,23 @@ Handlers.add("swapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap
 Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), CreditNotice);
 Handlers.add("Withdraw", Handlers.utils.hasMatchingTag('Action', "Withdraw"), Withdraw);
 
+function Liquidity(msg)
+    if msg.isAdd then
+        _Add(msg.caller,msg.amountA,msg.amountB)
+    else
+        _Remove(msg.caller,msg.share)
+    end
+end
+
+function Swap(msg)
+    if msg.isTokenA then
+        _SwapTokenA(msg)
+    else
+        _SwapTokenB(msg)
+    end
+    
+end
+
 function CreditNotice(msg)
     balances[msg.from][msg.sender] = msg.Quantity;
 end
@@ -35,23 +52,6 @@ function Withdraw(msg)
         if _balance < msg.Quantity then return end;--[[send some error-]]--
         balances[TokenBProcess][msg.caller] = _balance - msg.Quantity;
     end
-end
-
-function Liquidity(msg)
-    if msg.isAdd then
-        _Add(msg.caller,msg.amountA,msg.amountB)
-    else
-        _Remove(msg.caller,msg.share)
-    end
-end
-
-function Swap(msg)
-    if msg.isTokenA then
-        _SwapTokenA(msg)
-    else
-        _SwapTokenB(msg)
-    end
-    
 end
 
 function _Add (caller,amountA,amountB)
