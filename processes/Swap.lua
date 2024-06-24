@@ -13,8 +13,29 @@ local TokenB = 0;
 local TokenAProcess = "";
 local TokenBProcess = "";
 
-Handlers.add("liquidityBox", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), Liquidity)
-Handlers.add("swapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap)
+Handlers.add("liquidityBox", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), Liquidity);
+Handlers.add("swapBox", Handlers.utils.hasMatchingTag('Action', "SwapBox"), Swap);
+Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), CreditNotice);
+Handlers.add("Withdraw", Handlers.utils.hasMatchingTag('Action', "Withdraw"), Withdraw);
+
+function CreditNotice(msg)
+    balances[msg.from][msg.sender] = msg.Quantity;
+end
+
+function Withdraw(msg)
+    if not balances[TokenAProcess][msg.caller] then balances[TokenAProcess][msg.caller] = 0 end;
+    if not balances[TokenBProcess][msg.caller] then balances[TokenBProcess][msg.caller] = 0 end;
+
+    if msg.isTokenA then
+        local _balance = balances[TokenAProcess][msg.caller];
+        if _balance < msg.Quantity then return end;--[[send some error-]]--
+        balances[TokenAProcess][msg.caller] = _balance - msg.Quantity;
+    else
+        local _balance = balances[TokenBProcess][msg.caller];
+        if _balance < msg.Quantity then return end;--[[send some error-]]--
+        balances[TokenBProcess][msg.caller] = _balance - msg.Quantity;
+    end
+end
 
 function Liquidity(msg)
     if msg.isAdd then
