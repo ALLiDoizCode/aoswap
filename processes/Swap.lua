@@ -74,10 +74,22 @@ function _Remove (caller,share)
 end
 
 function _SwapTokenA(caller,token,amount,slippage)
+    if totalShares <= 0 then return end;--[[send some error-]]--
+    local estimate = _GetSwapTokenAEstimate(amount);
+    if estimate <= slippage then return end;--[[send some error-]]--
+    if TokenB <= 0 then return end;--[[send some error-]]--
+    if TokenB < estimate then return end;--[[send some error-]]--
+    local isValid = _IsValid(caller,TokenAProcess,amount)
+    if isValid ~= false then return end;--[[send some error-]]--
+    _SubstractBalance(caller,TokenAProcess,amount);
+    _AddBalance(caller,TokenBProcess,estimate);
+    TokenA = TokenA + amount;
+    TokenB = TokenB - estimate;
     
 end
 
 function _SwapTokenB(caller,token,amount,slippage)
+    if totalShares <= 0 then return end;--[[send some error-]]--
     
 end
 
