@@ -9,6 +9,7 @@ local precision = 0;
 local FeeRate = 0.01 -- Fee rate (1% in this example)
 local TokenA = 0;
 local TokenB = 0;
+local isPump = true; 
 
 local TokenAProcess = "";
 local TokenBProcess = "";
@@ -34,6 +35,7 @@ function Init(msg)
 end
 
 function Liquidity(msg)
+    if isPump then end;--[[send some error-]]--
     if msg.isAdd then
         _Add(msg.caller,msg.amountA,msg.amountB)
     else
