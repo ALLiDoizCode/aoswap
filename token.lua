@@ -83,6 +83,7 @@ end)
 --
 Handlers.add('info', Handlers.utils.hasMatchingTag('Action', 'Info'), function(msg)
     ao.send({
+        Action = "Info",
         Target = msg.From,
         Name = Name,
         Ticker = Ticker,
