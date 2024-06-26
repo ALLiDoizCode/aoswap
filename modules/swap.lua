@@ -152,15 +152,6 @@ function SwapB(from, amount, slippage)
     TokenA = TokenA - estimate;
 end
 
-function GetRemoveEstimate(share)
-    local result = {};
-    result.shareA = 0;
-    result.shareB = 0;
-    result.shareA = (share * TokenA) / TotalShares;
-    result.shareB = (share * TokenB) / TotalShares;
-    return result
-end
-
 function CreditNotice(msg)
     if not Balances[msg.From] then Balances[msg.From] = {} end;
     if not Balances[msg.From][msg.Sender] then Balances[msg.From][msg.Sender] = 0 end;

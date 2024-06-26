@@ -31,6 +31,15 @@ function IsValid(owner, token, amount)
     ---return false
 end
 
+function GetRemoveEstimate(share)
+    local result = {};
+    result.shareA = 0;
+    result.shareB = 0;
+    result.shareA = (share * TokenA) / TotalShares;
+    result.shareB = (share * TokenB) / TotalShares;
+    return result
+end
+
 function GetEquivalentTokenAEstimate(amountB)
     return (TokenA * Utils.toNumber(amountB)) / TokenB
 end
