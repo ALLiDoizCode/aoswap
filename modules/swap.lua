@@ -10,25 +10,6 @@ function Init(msg)
     Utils.result(msg.From, 200, 'success')
 end
 
-function Liquidity(msg)
-    if IsPump then
-        if (TokenA == 0 and TokenB == 0) then
-            Utils.result(msg.From, 200, "Adding Inital Liquidity")
-            InitalLiquidity(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
-            Utils.result(msg.From, 200, "Added Inital Liquidity")
-            return
-        else
-            Utils.result(msg.From, 403, "You can't add liquidty to pumps") 
-        end;
-        return
-    end;
-    if msg.isAdd then
-        Add(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
-    else
-        Remove(msg.From, Utils.toNumber(msg.share))
-    end
-end
-
 function InitalLiquidity(from, amountA, amountB)
     if Shares[from] == nil then Shares[from] = 0 end;
     _Share = 0;
@@ -113,66 +94,62 @@ function Remove(from, share)
     TotalShares = TotalShares + share;
 end
 
-function SwapA(msg)
+function SwapA(from, amount, slippage)
     if TotalShares <= 0 then
-        Utils.result(msg.From, 403, "Total Shares less then or equal to 0")
+        Utils.result(from, 403, "Total Shares less then or equal to 0")
         return
     end;
-    local estimate = GetSwapTokenAEstimate(Utils.toNumber(msg.amount));
-    if estimate <= Utils.toNumber(msg.slippage) then
-        Utils.result(msg.From, 403, "slippage")
+    local estimate = GetSwapTokenAEstimate(amount);
+    if estimate <= slippage then
+        Utils.result(from, 403, "slippage")
         return
     end;
     if TokenB <= 0 then
-        Utils.result(msg.From, 403, "No funds available")
+        Utils.result(from, 403, "No funds available")
         return
     end;
     if TokenB < estimate then
-        Utils.result(msg.From, 403, "Insufficient funds available")
+        Utils.result(from, 403, "Insufficient funds available")
         return
     end;
-    local isValid = IsValid(msg.From, TokenAProcess, Utils.toNumber(msg.amount))
+    local isValid = IsValid(from, TokenAProcess, amount)
     if isValid ~= false then
-        Utils.result(msg.From, 403, "Insufficient funds")
+        Utils.result(from, 403, "Insufficient funds")
         return
     end;
-    SubstractBalance(msg.From, TokenAProcess, Utils.toNumber(msg.amount));
-    AddBalance(msg.From, TokenBProcess, estimate);
-    TokenA = TokenA + Utils.toNumber(msg.amount);
+    SubstractBalance(from, TokenAProcess, amount);
+    AddBalance(from, TokenBProcess, estimate);
+    TokenA = TokenA + amount;
     TokenB = TokenB - estimate;
-    local _liquidity = GetLiquidity();
-    if _liquidity >= BondingCurve then IsPump = false end
 end
 
-function SwapB(msg)
+function SwapB(from, amount, slippage)
     if TotalShares <= 0 then
-        Utils.result(msg.From, 403, "Total Shares less then or equal to 0")
+        Utils.result(from, 403, "Total Shares less then or equal to 0")
         return
     end;
-    local estimate = GetSwapTokenBEstimate(Utils.toNumber(msg.amount));
-    if estimate <= Utils.toNumber(msg.slippage) then
-        Utils.result(msg.From, 403, "slippage")
+    local estimate = GetSwapTokenBEstimate(amount);
+    if estimate <= slippage then
+        Utils.result(from, 403, "slippage")
         return
     end;
     if TokenA <= 0 then
-        Utils.result(msg.From, 403, "No funds available")
+        Utils.result(from, 403, "No funds available")
         return
     end;
     if TokenA < estimate then
-        Utils.result(msg.From, 403, "Insufficient funds available")
+        Utils.result(from, 403, "Insufficient funds available")
         return
     end;
-    local isValid = IsValid(msg.From, TokenBProcess, Utils.toNumber(msg.amount))
+    local isValid = IsValid(from, TokenBProcess, amount)
     if isValid ~= false then
-        Utils.result(msg.From, 403, "Insufficient funds")
+        Utils.result(from, 403, "Insufficient funds")
         return
     end;
-    SubstractBalance(msg.From, TokenBProcess, Utils.toNumber(msg.amount));
-    AddBalance(msg.From, TokenAProcess, estimate);
-    TokenB = TokenB + Utils.toNumber(msg.amount);
+    SubstractBalance(from, TokenBProcess, amount);
+    AddBalance(from, TokenAProcess, estimate);
+    TokenB = TokenB + amount;
     TokenA = TokenA - estimate;
-    local _liquidity = GetLiquidity();
-    if _liquidity >= BondingCurve then IsPump = false end
 end
 
 function GetRemoveEstimate(share)

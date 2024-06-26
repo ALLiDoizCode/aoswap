@@ -17,20 +17,36 @@ Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(m
     Init(msg)
 end)
 
+Handlers.add("InitalLiquidity", Handlers.utils.hasMatchingTag('Action', "InitalLiquidity"), function(msg)
+    if IsPump then
+        if (TokenA == 0 and TokenB == 0) then
+            InitalLiquidity(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
+            return
+        else
+            Utils.result(msg.From, 403, "You can't add liquidty to pumps") 
+        end;
+        return
+    end;
+end);
+
 Handlers.add("Add", Handlers.utils.hasMatchingTag('Action', "Add"), function(msg)
-    Add(msg)
+    Add(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
 end);
 
 Handlers.add("Remove", Handlers.utils.hasMatchingTag('Action', "Remove"), function(msg)
-    Remove(msg)
+    Remove(msg.From, Utils.toNumber(msg.share))
 end);
 
 Handlers.add("SwapA", Handlers.utils.hasMatchingTag('Action', "SwapA"), function(msg)
-    SwapA(msg)
+    SwapA(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
+    local _liquidity = GetLiquidity();
+    if _liquidity >= BondingCurve then IsPump = false end
 end);
 
 Handlers.add("SwapB", Handlers.utils.hasMatchingTag('Action', "SwapB"), function(msg)
-    SwapB(msg)
+    SwapB(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
+    local _liquidity = GetLiquidity();
+    if _liquidity >= BondingCurve then IsPump = false end
 end)
 
 Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
