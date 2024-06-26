@@ -25,16 +25,16 @@ if not tokenInfo then tokenInfo = {} end;
 if not shares then shares = {} end;
 if not balances then balances = {} end;
 
-local totalShares = 0;
-local precision = 0;
-local FeeRate = 0.01 -- Fee rate (1% in this example)
-local TokenA = 0;
-local TokenB = 0;
-local isPump = true;
+totalShares = 0;
+precision = 100000000000000000;
+FeeRate = 0.01  -- Fee rate (1% in this example)
+TokenA = 0;
+TokenB = 0;
+IsPump = true;
 
-local BondingCurve = 0;
-local TokenAProcess = "";
-local TokenBProcess = "";
+BondingCurve = 0;
+TokenAProcess = "";
+TokenBProcess = "";
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     ao.isTrusted(msg)
@@ -60,9 +60,6 @@ Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(m
     TokenBProcess = tokenB.id;
     BondingCurve = data.bondingCurve;
 
-    balances[TokenAProcess] = {};
-    balances[TokenBProcess] = {};
-
     local infoA = {
         Name = tokenA.Name,
         Ticker = tokenA.Ticker,
@@ -78,30 +75,36 @@ Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(m
         Denomination = tokenB.Denomination
     };
     tokenInfo[TokenBProcess] = infoB;
-    --InitalLiquidity(msg.From, tokenA.amount, tokenB.amount)
-    utils.result(msg.From, 200, json.encode(infoA))
+    utils.result(msg.From, 200, 'success')
 end)
 
 Handlers.add("Liquidity-Box", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), function(msg)
-    if isPump then
-        utils.result(msg.From, 403, "You can't add liquidty to pumps")
+    if IsPump then
+        if (TokenA == 0 and TokenB == 0) then
+            utils.result(msg.From, 200, "Adding Inital Liquidity")
+            _InitalLiquidity(msg.From, utils.toNumber(msg.amountA), utils.toNumber(msg.amountB))
+            utils.result(msg.From, 200, "Added Inital Liquidity")
+            return
+        else
+            utils.result(msg.From, 403, "You can't add liquidty to pumps") 
+        end;
         return
     end;
     if msg.isAdd then
-        _Add(msg.From, msg.amountA, msg.amountB)
+        _Add(msg.From, utils.toNumber(msg.amountA), utils.toNumber(msg.amountB))
     else
-        _Remove(msg.From, msg.share)
+        _Remove(msg.From, utils.toNumber(msg.share))
     end
 end);
 
 Handlers.add("Swap-Box", Handlers.utils.hasMatchingTag('Action', "SwapBox"), function(msg)
     if msg.isTokenA then
-        _SwapTokenA(msg.From, msg.amount, msg.slippage);
+        _SwapTokenA(msg.From, utils.toNumber(msg.amount),utils.toNumber(msg.slippage));
     else
-        _SwapTokenB(msg.From, msg.amount, msg.slippage);
+        _SwapTokenB(msg.From, utils.toNumber(msg.amount),utils.toNumber(msg.slippage));
     end
     local _liquidity = _Liquidity();
-    if _liquidity >= BondingCurve then isPump = false end
+    if _liquidity >= BondingCurve then IsPump = false end
 end);
 
 Handlers.add("Withdraw-Box", Handlers.utils.hasMatchingTag('Action', "WithdrawBox"), function(msg)
@@ -158,35 +161,27 @@ Handlers.add("Balance-Box", Handlers.utils.hasMatchingTag('Action', "BalanceBox"
 end);
 
 Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), function(msg)
-    balances[msg.From][msg.Sender] = msg.Quantity;
+    if not balances[msg.From] then balances[msg.From] = {} end;
+    if not balances[msg.From][msg.Sender] then balances[msg.From][msg.Sender] = 0 end;
+    local balance = balances[msg.From][msg.Sender];
+    balances[msg.From][msg.Sender] = balance + utils.toNumber(msg.Quantity);
 end);
 
-function InitalLiquidity(from, amountA, amountB)
+function _InitalLiquidity(from, amountA, amountB)
     if shares[from] == nil then shares[from] = 0 end;
     _Share = 0;
     local isValidA = _IsValid(from, TokenAProcess, amountA)
     local isValidB = _IsValid(from, TokenBProcess, amountB)
     if (totalShares == 0) then _Share = 100 * precision end;
-    if (TokenA > 0 or TokenB > 0) then
-        utils.result(from, 403, "Inital liquidity exist")
-        return
-    end;
     if (isValidA == false or isValidB == false) then
         utils.result(from, 403, "Invalid Amount")
         return
     end;
-    local shareA = (totalShares * amountA) / TokenA;
-    local shareB = (totalShares * amountB) / TokenB;
-    if shareA ~= shareB then
-        utils.result(from, 403, "Invalid Share Amount")
-        return
-    end;
-    _Share = shareA;
     _SubstractBalance(from, TokenAProcess, amountA);
     _SubstractBalance(from, TokenBProcess, amountB);
-    TokenA = TokenA + amountA;
-    TokenB = TokenB + amountB;
-    local _share = shares[from];
+    TokenA = TokenA + utils.toNumber(amountA);
+    TokenB = TokenB + utils.toNumber(amountB);
+    local _share = utils.toNumber(shares[from]);
     shares[from] = _share + _Share;
     totalShares = totalShares + _Share;
 end
@@ -197,6 +192,7 @@ function _Add(from, amountA, amountB)
     local isValidA = _IsValid(from, TokenAProcess, amountA)
     local isValidB = _IsValid(from, TokenBProcess, amountB)
     if (totalShares == 0) then _Share = 100 * precision end;
+    utils.result(from, 200, "BoomStick")
     if (TokenA <= 0 or TokenB <= 0) then
         utils.result(from, 403, "Pool as a zero balance of one or more tokens")
         return
@@ -323,16 +319,15 @@ function GetRemoveEstimate(share)
 end
 
 function _IsValid(owner, token, amount)
-    if balances[token] == nil then token[token] = {} end;
-    utils.result(owner, 403, token)
-    if balances[token][owner] == nil then balances[token][owner] = 0 end;
+    if not balances[token] then token[token] = {} end;
+    if not balances[token][owner] then balances[token][owner] = 0 end;
     local balance = balances[token][owner];
-    return utils.toNumber(amount) > 0 and balance >= utils.toNumber(amount);
+    return utils.toNumber(amount) > 0 and utils.toNumber(balance) >= utils.toNumber(amount);
     ---return false
 end
 
 function _GetEquivalentTokenAEstimate(amountB)
-    return (TokenA * amountB) / TokenB
+    return (TokenA * utils.toNumber(amountB)) / TokenB
 end
 
 function _GetEquivalentTokenBEstimate(amountA)
@@ -360,14 +355,14 @@ end
 function _AddBalance(owner, token, amount)
     if balances[token][owner] == nil then token[token][owner] = 0 end;
     local _balance = balances[token][owner];
-    balances[token][owner] = _balance + amount;
+    balances[token][owner] = utils.toNumber(_balance) + utils.toNumber(amount);
 end
 
 function _SubstractBalance(owner, token, amount)
     if balances[token][owner] == nil then token[token][owner] = 0 end;
     local _balance = balances[token][owner];
-    if amount > _balance then balances[token][owner] = 0 end;
-    balances[token][owner] = _balance - amount;
+    if utils.toNumber(amount) > utils.toNumber(_balance) then balances[token][owner] = 0 end;
+    balances[token][owner] = utils.toNumber(_balance) - utils.toNumber(amount);
 end
 
 function _Liquidity()
