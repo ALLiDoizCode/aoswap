@@ -14,10 +14,10 @@ local utils = {
     toNumber = function(a)
         return tonumber(a)
     end,
-    result = function(target,code,message)
+    result = function(target, code, message)
         ao.send({
             Target = target,
-            Data = json.encode({code = code,message = message})
+            Data = json.encode({ code = code, message = message })
         });
     end
 }
@@ -38,77 +38,83 @@ local TokenBProcess = "";
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     ao.isTrusted(msg)
-    local data = json.decode(msg.Data);
-    local tokenA = data.TokenA;
-    local tokenB = data.TokenB;
-    assert(type(data.Minter) == 'string', 'Minter is required!')
-    assert(type(data.id) == 'string', 'TokenA Process id  is required!')
-    assert(type(data.id) == 'string', 'TokenB Process id is required!')
+    local data = json.decode(msg.data);
+    local tokenA = data.tokenA;
+    local tokenB = data.tokenB;
+    assert(type(msg.From) == 'string', 'Minter is required!')
+    assert(type(tokenA.id) == 'string', 'TokenA Process id  is required!')
+    assert(type(tokenB.id) == 'string', 'TokenB Process id is required!')
     assert(type(tokenA.amount) == 'string', 'amountA is required!')
     assert(type(tokenB.amount) == 'string', 'amountB is required!')
-    assert(type(data.BondingCurve) == 'string', 'bondingCurve is required!')
-    assert(type(tokenA.NameA) == 'string', 'bondingCurve is required!')
-    assert(type(tokenA.TickerA) == 'string', 'bondingCurve is required!')
-    assert(type(tokenA.LogoA) == 'string', 'bondingCurve is required!')
-    assert(type(tokenA.DenominationA) == 'string', 'bondingCurve is required!')
-    assert(type(tokenB.NameB) == 'string', 'bondingCurve is required!')
-    assert(type(tokenB.TickerB) == 'string', 'bondingCurve is required!')
-    assert(type(tokenB.LogoB) == 'string', 'bondingCurve is required!')
-    assert(type(tokenB.DenominationB) == 'string', 'bondingCurve is required!')
-
+    assert(type(data.bondingCurve) == 'string', 'bondingCurve is required!')
+    assert(type(tokenA.Name) == 'string', 'bondingCurve is required!')
+    assert(type(tokenA.Ticker) == 'string', 'bondingCurve is required!')
+    assert(type(tokenA.Logo) == 'string', 'bondingCurve is required!')
+    assert(type(tokenA.Denomination) == 'string', 'bondingCurve is required!')
+    assert(type(tokenB.Name) == 'string', 'bondingCurve is required!')
+    assert(type(tokenB.Ticker) == 'string', 'bondingCurve is required!')
+    assert(type(tokenB.Logo) == 'string', 'bondingCurve is required!')
+    assert(type(tokenB.Denomination) == 'string', 'bondingCurve is required!')
 
     TokenAProcess = tokenA.id;
     TokenBProcess = tokenB.id;
-    BondingCurve = data.BondingCurve;
+    BondingCurve = data.bondingCurve;
 
     balances[TokenAProcess] = {};
     balances[TokenBProcess] = {};
 
     local infoA = {
-        Name = tokenA.NameA,
-        Ticker = tokenA.TickerA,
-        Logo = tokenA.LogoA,
-        Denomination = utils.tostring(tokenA.DenominationA)
+        Name = tokenA.Name,
+        Ticker = tokenA.Ticker,
+        Logo = tokenA.Logo,
+        Denomination = tokenA.Denomination
     };
     tokenInfo[TokenAProcess] = infoA;
 
     local infoB = {
-        Name = tokenB.NameB,
-        Ticker = tokenB.TickerB,
-        Logo = tokenB.LogoB,
-        Denomination = utils.tostring(tokenB.DenominationB)
+        Name = tokenB.Name,
+        Ticker = tokenB.Ticker,
+        Logo = tokenB.Logo,
+        Denomination = tokenB.Denomination
     };
     tokenInfo[TokenBProcess] = infoB;
-    InitalLiquidity(data.Minter, tokenA.amount, tokenB.amount)
+    --InitalLiquidity(msg.From, tokenA.amount, tokenB.amount)
+    utils.result(msg.From, 200, json.encode(infoA))
 end)
 
 Handlers.add("Liquidity-Box", Handlers.utils.hasMatchingTag('Action', "LiquidityBox"), function(msg)
-    if isPump then utils.result(msg.from,403,"You can't add liquidty to pumps") return end;
+    if isPump then
+        utils.result(msg.From, 403, "You can't add liquidty to pumps")
+        return
+    end;
     if msg.isAdd then
-        _Add(msg.from, msg.amountA, msg.amountB)
+        _Add(msg.From, msg.amountA, msg.amountB)
     else
-        _Remove(msg.from, msg.share)
+        _Remove(msg.From, msg.share)
     end
 end);
 
 Handlers.add("Swap-Box", Handlers.utils.hasMatchingTag('Action', "SwapBox"), function(msg)
     if msg.isTokenA then
-        _SwapTokenA(msg.from, msg.amount, msg.slippage);
+        _SwapTokenA(msg.From, msg.amount, msg.slippage);
     else
-        _SwapTokenB(msg.from, msg.amount, msg.slippage);
+        _SwapTokenB(msg.From, msg.amount, msg.slippage);
     end
     local _liquidity = _Liquidity();
     if _liquidity >= BondingCurve then isPump = false end
 end);
 
 Handlers.add("Withdraw-Box", Handlers.utils.hasMatchingTag('Action', "WithdrawBox"), function(msg)
-    if not balances[TokenAProcess][msg.from] then balances[TokenAProcess][msg.from] = 0 end;
-    if not balances[TokenBProcess][msg.from] then balances[TokenBProcess][msg.from] = 0 end;
+    if not balances[TokenAProcess][msg.From] then balances[TokenAProcess][msg.From] = 0 end;
+    if not balances[TokenBProcess][msg.From] then balances[TokenBProcess][msg.From] = 0 end;
 
     if msg.isTokenA then
-        local _balance = balances[TokenAProcess][msg.from];
-        if _balance < msg.Quantity then utils.result(msg.from,403,"Insufficient Funds") return end;
-        balances[TokenAProcess][msg.from] = _balance - msg.Quantity;
+        local _balance = balances[TokenAProcess][msg.From];
+        if _balance < msg.Quantity then
+            utils.result(msg.From, 403, "Insufficient Funds")
+            return
+        end;
+        balances[TokenAProcess][msg.From] = _balance - msg.Quantity;
         ao.send({
             Target = TokenAProcess,
             Tags = {
@@ -118,9 +124,12 @@ Handlers.add("Withdraw-Box", Handlers.utils.hasMatchingTag('Action', "WithdrawBo
             }
         });
     else
-        local _balance = balances[TokenBProcess][msg.from];
-        if _balance < msg.Quantity then utils.result(msg.from,403,"Insufficient Funds") return end;
-        balances[TokenBProcess][msg.from] = _balance - msg.Quantity;
+        local _balance = balances[TokenBProcess][msg.From];
+        if _balance < msg.Quantity then
+            utils.result(msg.From, 403, "Insufficient Funds")
+            return
+        end;
+        balances[TokenBProcess][msg.From] = _balance - msg.Quantity;
         ao.send({
             Target = TokenBProcess,
             Tags = {
@@ -133,36 +142,45 @@ Handlers.add("Withdraw-Box", Handlers.utils.hasMatchingTag('Action', "WithdrawBo
 end);
 
 Handlers.add("Balance-Box", Handlers.utils.hasMatchingTag('Action', "BalanceBox"), function(msg)
-    if not balances[TokenAProcess][msg.from] then balances[TokenAProcess][msg.from] = 0 end;
-    if not balances[TokenBProcess][msg.from] then balances[TokenBProcess][msg.from] = 0 end;
-    local _balanceA = balances[TokenAProcess][msg.from];
-    local _balanceB = balances[TokenBProcess][msg.from];
+    if not balances[TokenAProcess][msg.From] then balances[TokenAProcess][msg.From] = 0 end;
+    if not balances[TokenBProcess][msg.From] then balances[TokenBProcess][msg.From] = 0 end;
+    local _balanceA = balances[TokenAProcess][msg.From];
+    local _balanceB = balances[TokenBProcess][msg.From];
     ao.send({
         Target = msg.From,
         Action = "Balance",
         BalanceA = _balanceA,
         BalanceB = _balanceB,
-        TokenA = tokenInfo[TokenA],
-        TokenB = tokenInfo[TokenB],
+        TokenA = json.encode(tokenInfo[TokenAProcess]),
+        TokenB = json.encode(tokenInfo[TokenBProcess]),
         Account = msg.Tags.Target or msg.From,
     })
 end);
 
 Handlers.add("Credit-Notice", Handlers.utils.hasMatchingTag('Action', "Credit-Notice"), function(msg)
-    balances[msg.from][msg.sender] = msg.Quantity;
+    balances[msg.From][msg.Sender] = msg.Quantity;
 end);
 
 function InitalLiquidity(from, amountA, amountB)
-    if not shares[from] then shares[from] = 0 end;
+    if shares[from] == nil then shares[from] = 0 end;
     _Share = 0;
     local isValidA = _IsValid(from, TokenAProcess, amountA)
     local isValidB = _IsValid(from, TokenBProcess, amountB)
     if (totalShares == 0) then _Share = 100 * precision end;
-    if (TokenA > 0 or TokenB > 0) then utils.result(from,403,"Inital liquidity exist") return end;
-    if (isValidA == false or isValidB == false) then utils.result(from,403,"Invalid Amount") return end;
+    if (TokenA > 0 or TokenB > 0) then
+        utils.result(from, 403, "Inital liquidity exist")
+        return
+    end;
+    if (isValidA == false or isValidB == false) then
+        utils.result(from, 403, "Invalid Amount")
+        return
+    end;
     local shareA = (totalShares * amountA) / TokenA;
     local shareB = (totalShares * amountB) / TokenB;
-    if shareA ~= shareB then utils.result(from,403,"Invalid Share Amount") return end;
+    if shareA ~= shareB then
+        utils.result(from, 403, "Invalid Share Amount")
+        return
+    end;
     _Share = shareA;
     _SubstractBalance(from, TokenAProcess, amountA);
     _SubstractBalance(from, TokenBProcess, amountB);
@@ -179,13 +197,25 @@ function _Add(from, amountA, amountB)
     local isValidA = _IsValid(from, TokenAProcess, amountA)
     local isValidB = _IsValid(from, TokenBProcess, amountB)
     if (totalShares == 0) then _Share = 100 * precision end;
-    if (TokenA <= 0 or TokenB <= 0) then utils.result(from,403,"Pool as a zero balance of one or more tokens") return end;
-    if (isValidA == false or isValidB == false) then utils.result(from,403,"Invalid Amount") return end;
+    if (TokenA <= 0 or TokenB <= 0) then
+        utils.result(from, 403, "Pool as a zero balance of one or more tokens")
+        return
+    end;
+    if (isValidA == false or isValidB == false) then
+        utils.result(from, 403, "Invalid Amount")
+        return
+    end;
     local estimateB = _GetEquivalentTokenAEstimate(amountB);
-    if amountB ~= estimateB then utils.result(from,403,"Invalid Amount") return end;
+    if amountB ~= estimateB then
+        utils.result(from, 403, "Invalid Amount")
+        return
+    end;
     local shareA = (totalShares * amountA) / TokenA;
     local shareB = (totalShares * amountB) / TokenB;
-    if shareA ~= shareB then utils.result(from,403,"Invalid Shares") return end;
+    if shareA ~= shareB then
+        utils.result(from, 403, "Invalid Shares")
+        return
+    end;
     _Share = shareA;
     _SubstractBalance(from, TokenAProcess, amountA);
     _SubstractBalance(from, TokenBProcess, amountB);
@@ -198,12 +228,27 @@ end
 
 function _Remove(from, share)
     if not shares[from] then shares[from] = 0 end;
-    if totalShares <= 0 then utils.result(from,403,"Totals shares less then or equal to 0") return end;
-    if totalShares < share then utils.result(from,403,"Total shares less then requested amount") return end;                     
+    if totalShares <= 0 then
+        utils.result(from, 403, "Totals shares less then or equal to 0")
+        return
+    end;
+    if totalShares < share then
+        utils.result(from, 403, "Total shares less then requested amount")
+        return
+    end;
     local estimate = GetRemoveEstimate(share);
-    if estimate.shareA <= 0 and estimate.shareB <= 0 then utils.result(from,403,"No shares available") return end;
-    if TokenA < estimate.shareA then utils.result(from,403,"Invalid Amount in reserve A")return end;
-    if TokenB < estimate.shareB then utils.result(from,403,"Invalid Amount in reserve B")return end;
+    if estimate.shareA <= 0 and estimate.shareB <= 0 then
+        utils.result(from, 403, "No shares available")
+        return
+    end;
+    if TokenA < estimate.shareA then
+        utils.result(from, 403, "Invalid Amount in reserve A")
+        return
+    end;
+    if TokenB < estimate.shareB then
+        utils.result(from, 403, "Invalid Amount in reserve B")
+        return
+    end;
     shares[from] = _Share - share;
     _AddBalance(from, TokenAProcess, estimate.shareA);
     _AddBalance(from, TokenBProcess, estimate.shareB);
@@ -211,13 +256,28 @@ function _Remove(from, share)
 end
 
 function _SwapTokenA(from, amount, slippage)
-    if totalShares <= 0 then utils.result(from,403,"Total shares less then or equal to 0") return end;
+    if totalShares <= 0 then
+        utils.result(from, 403, "Total shares less then or equal to 0")
+        return
+    end;
     local estimate = _GetSwapTokenAEstimate(amount);
-    if estimate <= slippage then utils.result(from,403,"slippage") return end;
-    if TokenB <= 0 then utils.result(from,403,"No funds available") return end;
-    if TokenB < estimate then utils.result(from,403,"Insufficient funds available") return end;
+    if estimate <= slippage then
+        utils.result(from, 403, "slippage")
+        return
+    end;
+    if TokenB <= 0 then
+        utils.result(from, 403, "No funds available")
+        return
+    end;
+    if TokenB < estimate then
+        utils.result(from, 403, "Insufficient funds available")
+        return
+    end;
     local isValid = _IsValid(from, TokenAProcess, amount)
-    if isValid ~= false then utils.result(from,403,"Insufficient funds") return end;
+    if isValid ~= false then
+        utils.result(from, 403, "Insufficient funds")
+        return
+    end;
     _SubstractBalance(from, TokenAProcess, amount);
     _AddBalance(from, TokenBProcess, estimate);
     TokenA = TokenA + amount;
@@ -225,13 +285,28 @@ function _SwapTokenA(from, amount, slippage)
 end
 
 function _SwapTokenB(from, amount, slippage)
-    if totalShares <= 0 then utils.result(from,403,"Total shares less then or equal to 0") return end;
+    if totalShares <= 0 then
+        utils.result(from, 403, "Total shares less then or equal to 0")
+        return
+    end;
     local estimate = _GetSwapTokenBEstimate(amount);
-    if estimate <= slippage then utils.result(from,403,"slippage") return end;
-    if TokenA <= 0 then utils.result(from,403,"No funds available") return end;
-    if TokenA < estimate then utils.result(from,403,"Insufficient funds available") return end;
+    if estimate <= slippage then
+        utils.result(from, 403, "slippage")
+        return
+    end;
+    if TokenA <= 0 then
+        utils.result(from, 403, "No funds available")
+        return
+    end;
+    if TokenA < estimate then
+        utils.result(from, 403, "Insufficient funds available")
+        return
+    end;
     local isValid = _IsValid(from, TokenBProcess, amount)
-    if isValid ~= false then utils.result(from,403,"Insufficient funds") return end;
+    if isValid ~= false then
+        utils.result(from, 403, "Insufficient funds")
+        return
+    end;
     _SubstractBalance(from, TokenBProcess, amount);
     _AddBalance(from, TokenAProcess, estimate);
     TokenB = TokenB + amount;
@@ -248,9 +323,12 @@ function GetRemoveEstimate(share)
 end
 
 function _IsValid(owner, token, amount)
-    if not balances[token][owner] then token[token][owner] = 0 end;
+    if balances[token] == nil then token[token] = {} end;
+    utils.result(owner, 403, token)
+    if balances[token][owner] == nil then balances[token][owner] = 0 end;
     local balance = balances[token][owner];
-    return amount > 0 and balance >= amount;
+    return utils.toNumber(amount) > 0 and balance >= utils.toNumber(amount);
+    ---return false
 end
 
 function _GetEquivalentTokenAEstimate(amountB)
@@ -280,13 +358,13 @@ function _Price()
 end
 
 function _AddBalance(owner, token, amount)
-    if not balances[token][owner] then token[token][owner] = 0 end;
+    if balances[token][owner] == nil then token[token][owner] = 0 end;
     local _balance = balances[token][owner];
     balances[token][owner] = _balance + amount;
 end
 
 function _SubstractBalance(owner, token, amount)
-    if not balances[token][owner] then token[token][owner] = 0 end;
+    if balances[token][owner] == nil then token[token][owner] = 0 end;
     local _balance = balances[token][owner];
     if amount > _balance then balances[token][owner] = 0 end;
     balances[token][owner] = _balance - amount;
