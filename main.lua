@@ -1,3 +1,6 @@
+local ao = require('ao');
+local json = require('json');
+
 if not TokenInfo then TokenInfo = {} end;
 if not Shares then Shares = {} end;
 if not Balances then Balances = {} end;
@@ -15,8 +18,9 @@ TokenAProcess = "";
 TokenBProcess = "";
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
+    ao.isTrusted(msg)
     assert(IsActive == false,"Pool is already active")
-    Init(msg)
+    Init(msg.From,msg.tokenA,msg.tokenB,msg.bondingCurve)
 end)
 
 Handlers.add("InitalLiquidity", Handlers.utils.hasMatchingTag('Action', "InitalLiquidity"), function(msg)

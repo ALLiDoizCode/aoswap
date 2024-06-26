@@ -2,12 +2,11 @@ local ao = require('ao');
 local json = require('json');
 
 
-function Init(msg)
-    ao.isTrusted(msg)
-    TokenAProcess = msg.tokenA;
-    TokenBProcess = msg.tokenB;
-    BondingCurve = msg.bondingCurve;
-    Utils.result(msg.From, 200, 'success')
+function Init(from,tokenA,tokenB,bondingCurve)
+    TokenAProcess = tokenA;
+    TokenBProcess = tokenB;
+    BondingCurve = bondingCurve;
+    Utils.result(from, 200, 'success')
 end
 
 function InitalLiquidity(from, amountA, amountB)
