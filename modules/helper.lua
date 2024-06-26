@@ -1,3 +1,28 @@
+local ao = require('ao');
+local json = require('json');
+
+Utils = {
+    add = function(a, b)
+        return tostring(bint(a) + bint(b))
+    end,
+    subtract = function(a, b)
+        return tostring(bint(a) - bint(b))
+    end,
+    toBalanceValue = function(a)
+        return tostring(bint(a))
+    end,
+    toNumber = function(a)
+        return tonumber(a)
+    end,
+    result = function(target, code, message)
+        ao.send({
+            Target = target,
+            Data = json.encode({ code = code, message = message })
+        });
+    end
+}
+
+
 function IsValid(owner, token, amount)
     if not Balances[token] then token[token] = {} end;
     if not Balances[token][owner] then Balances[token][owner] = 0 end;

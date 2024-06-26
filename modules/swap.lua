@@ -1,26 +1,6 @@
 local ao = require('ao');
 local json = require('json');
 
-Utils = {
-    add = function(a, b)
-        return tostring(bint(a) + bint(b))
-    end,
-    subtract = function(a, b)
-        return tostring(bint(a) - bint(b))
-    end,
-    toBalanceValue = function(a)
-        return tostring(bint(a))
-    end,
-    toNumber = function(a)
-        return tonumber(a)
-    end,
-    result = function(target, code, message)
-        ao.send({
-            Target = target,
-            Data = json.encode({ code = code, message = message })
-        });
-    end
-}
 
 function Init(msg)
     ao.isTrusted(msg)
@@ -28,53 +8,6 @@ function Init(msg)
     TokenBProcess = msg.tokenB;
     BondingCurve = msg.bondingCurve;
     Utils.result(msg.From, 200, 'success')
-end
-
-function Withdraw(msg)
-    if not Balances[TokenAProcess][msg.From] then Balances[TokenAProcess][msg.From] = 0 end;
-    if not Balances[TokenBProcess][msg.From] then Balances[TokenBProcess][msg.From] = 0 end;
-
-    if msg.isTokenA then
-        local _balance = Balances[TokenAProcess][msg.From];
-        if _balance < msg.Quantity then
-            Utils.result(msg.From, 403, "Insufficient Funds")
-            return
-        end;
-        Balances[TokenAProcess][msg.From] = _balance - msg.Quantity;
-        ao.send({
-            Target = TokenAProcess,
-            Tags = {
-                { name = "Action",    value = "Transfer" },
-                { name = "Recipient", value = msg.Recipient },
-                { name = "Quantity",  value = msg.Quantity },
-            }
-        });
-    else
-        local _balance = Balances[TokenBProcess][msg.From];
-        if _balance < msg.Quantity then
-            Utils.result(msg.From, 403, "Insufficient Funds")
-            return
-        end;
-        Balances[TokenBProcess][msg.From] = _balance - msg.Quantity;
-        ao.send({
-            Target = TokenBProcess,
-            Tags = {
-                { name = "Action",    value = "Transfer" },
-                { name = "Recipient", value = msg.Recipient },
-                { name = "Quantity",  value = msg.Quantity },
-            }
-        });
-    end
-end
-
-function Swap(msg)
-    if msg.isTokenA then
-        SwapA(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
-    else
-        SwapB(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
-    end
-    local _liquidity = GetLiquidity();
-    if _liquidity >= BondingCurve then IsPump = false end
 end
 
 function Liquidity(msg)
@@ -180,62 +113,66 @@ function Remove(from, share)
     TotalShares = TotalShares + share;
 end
 
-function SwapA(from, amount, slippage)
+function SwapA(msg)
     if TotalShares <= 0 then
-        Utils.result(from, 403, "Total Shares less then or equal to 0")
+        Utils.result(msg.From, 403, "Total Shares less then or equal to 0")
         return
     end;
-    local estimate = GetSwapTokenAEstimate(amount);
-    if estimate <= slippage then
-        Utils.result(from, 403, "slippage")
+    local estimate = GetSwapTokenAEstimate(Utils.toNumber(msg.amount));
+    if estimate <= Utils.toNumber(msg.slippage) then
+        Utils.result(msg.From, 403, "slippage")
         return
     end;
     if TokenB <= 0 then
-        Utils.result(from, 403, "No funds available")
+        Utils.result(msg.From, 403, "No funds available")
         return
     end;
     if TokenB < estimate then
-        Utils.result(from, 403, "Insufficient funds available")
+        Utils.result(msg.From, 403, "Insufficient funds available")
         return
     end;
-    local isValid = IsValid(from, TokenAProcess, amount)
+    local isValid = IsValid(msg.From, TokenAProcess, Utils.toNumber(msg.amount))
     if isValid ~= false then
-        Utils.result(from, 403, "Insufficient funds")
+        Utils.result(msg.From, 403, "Insufficient funds")
         return
     end;
-    SubstractBalance(from, TokenAProcess, amount);
-    AddBalance(from, TokenBProcess, estimate);
-    TokenA = TokenA + amount;
+    SubstractBalance(msg.From, TokenAProcess, Utils.toNumber(msg.amount));
+    AddBalance(msg.From, TokenBProcess, estimate);
+    TokenA = TokenA + Utils.toNumber(msg.amount);
     TokenB = TokenB - estimate;
+    local _liquidity = GetLiquidity();
+    if _liquidity >= BondingCurve then IsPump = false end
 end
 
-function SwapB(from, amount, slippage)
+function SwapB(msg)
     if TotalShares <= 0 then
-        Utils.result(from, 403, "Total Shares less then or equal to 0")
+        Utils.result(msg.From, 403, "Total Shares less then or equal to 0")
         return
     end;
-    local estimate = GetSwapTokenBEstimate(amount);
-    if estimate <= slippage then
-        Utils.result(from, 403, "slippage")
+    local estimate = GetSwapTokenBEstimate(Utils.toNumber(msg.amount));
+    if estimate <= Utils.toNumber(msg.slippage) then
+        Utils.result(msg.From, 403, "slippage")
         return
     end;
     if TokenA <= 0 then
-        Utils.result(from, 403, "No funds available")
+        Utils.result(msg.From, 403, "No funds available")
         return
     end;
     if TokenA < estimate then
-        Utils.result(from, 403, "Insufficient funds available")
+        Utils.result(msg.From, 403, "Insufficient funds available")
         return
     end;
-    local isValid = IsValid(from, TokenBProcess, amount)
+    local isValid = IsValid(msg.From, TokenBProcess, Utils.toNumber(msg.amount))
     if isValid ~= false then
-        Utils.result(from, 403, "Insufficient funds")
+        Utils.result(msg.From, 403, "Insufficient funds")
         return
     end;
-    SubstractBalance(from, TokenBProcess, amount);
-    AddBalance(from, TokenAProcess, estimate);
-    TokenB = TokenB + amount;
+    SubstractBalance(msg.From, TokenBProcess, Utils.toNumber(msg.amount));
+    AddBalance(msg.From, TokenAProcess, estimate);
+    TokenB = TokenB + Utils.toNumber(msg.amount);
     TokenA = TokenA - estimate;
+    local _liquidity = GetLiquidity();
+    if _liquidity >= BondingCurve then IsPump = false end
 end
 
 function GetRemoveEstimate(share)
@@ -278,4 +215,41 @@ function Balance(msg)
         TokenB = json.encode(TokenInfo[TokenBProcess]),
         Account = msg.Tags.Target or msg.From,
     })
+end
+
+function Withdraw(msg)
+    if not Balances[TokenAProcess][msg.From] then Balances[TokenAProcess][msg.From] = 0 end;
+    if not Balances[TokenBProcess][msg.From] then Balances[TokenBProcess][msg.From] = 0 end;
+
+    if msg.isTokenA then
+        local _balance = Balances[TokenAProcess][msg.From];
+        if _balance < msg.Quantity then
+            Utils.result(msg.From, 403, "Insufficient Funds")
+            return
+        end;
+        Balances[TokenAProcess][msg.From] = _balance - msg.Quantity;
+        ao.send({
+            Target = TokenAProcess,
+            Tags = {
+                { name = "Action",    value = "Transfer" },
+                { name = "Recipient", value = msg.Recipient },
+                { name = "Quantity",  value = msg.Quantity },
+            }
+        });
+    else
+        local _balance = Balances[TokenBProcess][msg.From];
+        if _balance < msg.Quantity then
+            Utils.result(msg.From, 403, "Insufficient Funds")
+            return
+        end;
+        Balances[TokenBProcess][msg.From] = _balance - msg.Quantity;
+        ao.send({
+            Target = TokenBProcess,
+            Tags = {
+                { name = "Action",    value = "Transfer" },
+                { name = "Recipient", value = msg.Recipient },
+                { name = "Quantity",  value = msg.Quantity },
+            }
+        });
+    end
 end
