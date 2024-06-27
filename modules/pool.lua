@@ -1,7 +1,6 @@
 local ao = require('ao');
 local json = require('json');
 
-
 function Init(from,tokenA,tokenB,bondingCurve)
     TokenAProcess = tokenA;
     TokenBProcess = tokenB;
@@ -34,7 +33,6 @@ function Add(from, amountA, amountB)
     local isValidA = IsValid(from, TokenAProcess, amountA)
     local isValidB = IsValid(from, TokenBProcess, amountB)
     if (TotalShares == 0) then _Share = 100 * Precision end;
-    Utils.result(from, 200, "BoomStick")
     if (TokenA <= 0 or TokenB <= 0) then
         Utils.result(from, 403, "Pool as a zero balance of one or more tokens")
         return

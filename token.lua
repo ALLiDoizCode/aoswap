@@ -70,6 +70,10 @@ Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(m
     Ticker = msg.Ticker
     Logo = msg.Logo
     Denomination = utils.toNumber(msg.Denomination)
+    ao.send({
+        Target = "Token-Request",
+        UUID = msg.UUID
+    });
 end)
 
 --[[
