@@ -5,7 +5,7 @@ if not TokenInfo then TokenInfo = {} end;
 if not Shares then Shares = {} end;
 if not Balances then Balances = {} end;
 
-ManagerProcess = "";
+ManagerProcess = "HNIsIdCJzUINPhAsnTOY-7XgYW2ZKEXqzKR9lNg7rG4";
 
 TotalShares = 0;
 Precision = 100000000000000000;

@@ -5,8 +5,8 @@ local crypto = require(".crypto");
 if not Pools then Pools = {} end;
 if not PoolRequest then PoolRequest = {} end;
 
-local token_module = "";
-local pool_module = "";
+local token_module = "Pq2Zftrqut0hdisH_MC2pDOT6S4eQFoxGsFUzR6r350";
+local pool_module = "Pq2Zftrqut0hdisH_MC2pDOT6S4eQFoxGsFUzR6r350";
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     local uuid = UUID();
