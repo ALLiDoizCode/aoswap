@@ -37,6 +37,7 @@ Handlers.add('Pool-Request', Handlers.utils.hasMatchingTag('Action', 'Swap-Reque
         TokenA = msg.TokenA,
         TokenB = request.TokenB,
         Pool = processId,
+        IsPump = true,
         Minter = request.Minter,
         Name = request.Name,
         Ticker = request.Ticker,
@@ -44,7 +45,32 @@ Handlers.add('Pool-Request', Handlers.utils.hasMatchingTag('Action', 'Swap-Reque
         Denomination = request.Denomination,
         BondingCurve = request.BondingCurve
     }
-    Pools[processId] = pool
+    Pools[processId] = pool;
+end)
+
+Handlers.add('Pool', Handlers.utils.hasMatchingTag('Action', 'Pool'), function(msg)
+    Utils.result(msg.From,Pools[msg.Pool]);
+end)
+
+Handlers.add('Pools', Handlers.utils.hasMatchingTag('Action', 'Pools'), function(msg)
+    local _pools = {};
+    for k, v in pairs(Pools[msg.Pool]) do
+        if v.IsPump == false then
+            _pools[k] = v;
+        end
+      end
+    Utils.result(msg.From,_pools);
+end)
+
+Handlers.add('Pumps', Handlers.utils.hasMatchingTag('Action', 'Pumps'), function(msg)
+    local pumps = {}
+    local _pools = Pools[msg.Pool];
+    for k, v in pairs(_pools) do
+        if v.IsPump == true then
+            pumps[k] = v;
+        end
+      end
+    Utils.result(msg.From,pumps);
 end)
 
 function SpawnToken(uuid, request)
