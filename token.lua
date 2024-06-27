@@ -71,7 +71,8 @@ Handlers.add('init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(m
     Logo = msg.Logo
     Denomination = utils.toNumber(msg.Denomination)
     ao.send({
-        Target = "Token-Request",
+        Target = msg.From,
+        Action = "Token-Request",
         UUID = msg.UUID
     });
 end)

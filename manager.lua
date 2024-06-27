@@ -3,43 +3,68 @@ local json = require('json');
 local crypto = require(".crypto");
 
 if not Pools then Pools = {} end;
-if not TokenRequest then TokenRequest = {} end;
 if not PoolRequest then PoolRequest = {} end;
 
 local token_module = ""
-local swap_module = ""
+local pool_module = ""
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
-    local request = json.decode(msg.Request)
     local uuid = UUID();
-    TokenRequest[uuid] = request;
+    local _request = json.decode(msg.Request)
+    local request = {
+        TokenB = _request.TokenB,
+        Minter = msg.From,
+        Name = _request.Name,
+        Ticker = _request.Ticker,
+        Logo = _request.Logo,
+        Denomination = _request.Denomination,
+        BondingCurve = _request.BondingCurve
+    }
     PoolRequest[uuid] = request;
-    SpawnToken(msg.From, request)
+    SpawnToken(uuid, request)
 end)
 
 Handlers.add('Token-Request', Handlers.utils.hasMatchingTag('Action', 'Token-Request'), function(msg)
-    local uuid = msg.UUID;
     local processId = msg.From;
-    local request = TokenRequest[uuid]
-    Utils.result(msg.From, 200, uuid);
+    local request = PoolRequest[msg.UUID];
+    SpawnPool(msg.UUID, processId, request.TokenB, request.BondingCurve);
 end)
 
 Handlers.add('Pool-Request', Handlers.utils.hasMatchingTag('Action', 'Swap-Request'), function(msg)
-    local uuid = msg.UUID;
     local processId = msg.From;
-    local request = PoolRequest[uuid]
-    Utils.result(msg.From, 200, uuid)
+    local request = PoolRequest[msg.UUID];
+    local pool = {
+        TokenA = msg.TokenA,
+        TokenB = request.TokenB,
+        Pool = processId,
+        Minter = request.Minter,
+        Name = request.Name,
+        Ticker = request.Ticker,
+        Logo = request.Logo,
+        Denomination = request.Denomination,
+        BondingCurve = request.BondingCurve
+    }
+    Pools[processId] = pool
 end)
 
-function SpawnToken(minter, uuid, request)
+function SpawnToken(uuid, request)
     ao.spawn(token_module, {
         Action = "init",
         UUID = uuid,
-        Minter = minter,
-        Name = request.name,
-        Ticker = request.ticker,
-        Logo = request.logo,
-        Denomination = Utils.toNumber(request.denomination)
+        Name = request.Name,
+        Ticker = request.Ticker,
+        Logo = request.Logo,
+        Denomination = Utils.toNumber(request.Denomination)
+    })
+end
+
+function SpawnPool(uuid, tokenA, tokenB, bondingCurve)
+    ao.spawn(pool_module, {
+        Action = "Init",
+        UUID = uuid,
+        TokenA = tokenA,
+        TokenB = tokenB,
+        BondingCurve = bondingCurve
     })
 end
 

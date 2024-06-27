@@ -1,11 +1,16 @@
 local ao = require('ao');
 local json = require('json');
 
-function Init(from,tokenA,tokenB,bondingCurve)
+function Init(from, tokenA, tokenB, bondingCurve, uuid)
     TokenAProcess = tokenA;
     TokenBProcess = tokenB;
     BondingCurve = bondingCurve;
-    Utils.result(from, 200, 'success')
+    ao.send({
+        Target = from,
+        Action = "Pool-Request",
+        UUID = uuid,
+        TokenA = tokenA
+    });
 end
 
 function InitalLiquidity(from, amountA, amountB)

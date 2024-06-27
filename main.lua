@@ -20,7 +20,7 @@ TokenBProcess = "";
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     ao.isTrusted(msg)
     assert(IsActive == false,"Pool is already active")
-    Init(msg.From,msg.tokenA,msg.tokenB,msg.bondingCurve)
+    Init(msg.From,msg.TokenA,msg.TokenB,msg.BondingCurve,msg.UUID)
 end)
 
 Handlers.add("InitalLiquidity", Handlers.utils.hasMatchingTag('Action', "InitalLiquidity"), function(msg)
