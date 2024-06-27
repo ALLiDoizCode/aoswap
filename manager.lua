@@ -5,8 +5,8 @@ local crypto = require(".crypto");
 if not Pools then Pools = {} end;
 if not PoolRequest then PoolRequest = {} end;
 
-local token_module = ""
-local pool_module = ""
+local token_module = "";
+local pool_module = "";
 
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     local uuid = UUID();
@@ -47,6 +47,13 @@ Handlers.add('Pool-Request', Handlers.utils.hasMatchingTag('Action', 'Swap-Reque
     }
     Pools[processId] = pool;
 end)
+
+Handlers.add('Bonded', Handlers.utils.hasMatchingTag('Action', 'Bonded'), function(msg)
+    local pool = Pools[msg.From];
+    pool.IsPump = false;
+    Pools[msg.From] = pool;
+end)
+
 
 Handlers.add('Pool', Handlers.utils.hasMatchingTag('Action', 'Pool'), function(msg)
     Utils.result(msg.From,Pools[msg.Pool]);

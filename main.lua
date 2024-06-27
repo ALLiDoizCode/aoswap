@@ -5,6 +5,8 @@ if not TokenInfo then TokenInfo = {} end;
 if not Shares then Shares = {} end;
 if not Balances then Balances = {} end;
 
+ManagerProcess = "";
+
 TotalShares = 0;
 Precision = 100000000000000000;
 FeeRate = 0.01  -- Fee rate (1% in this example)

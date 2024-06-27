@@ -123,6 +123,14 @@ function SwapA(from, amount, slippage)
     AddBalance(from, TokenBProcess, estimate);
     TokenA = TokenA + amount;
     TokenB = TokenB - estimate;
+    local liquidity = GetLiquidity();
+    if liquidity >= BondingCurve then
+        IsPump = false;
+        ao.send({
+            Target = ManagerProcess,
+            Action = "Bonded"
+        });
+    end
 end
 
 function SwapB(from, amount, slippage)
@@ -152,6 +160,14 @@ function SwapB(from, amount, slippage)
     AddBalance(from, TokenAProcess, estimate);
     TokenB = TokenB + amount;
     TokenA = TokenA - estimate;
+    local liquidity = GetLiquidity();
+    if liquidity >= BondingCurve then
+        IsPump = false;
+        ao.send({
+            Target = ManagerProcess,
+            Action = "Bonded"
+        });
+    end
 end
 
 function CreditNotice(msg)
