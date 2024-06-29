@@ -164,6 +164,18 @@ function Remove(from, share)
     AddBalance(from, TokenAProcess, estimate.shareA);
     AddBalance(from, TokenBProcess, estimate.shareB);
     TotalShares = TotalShares + share;
+    ao.send({
+        Target = TokenAProcess,
+        Action = "transfer",
+        Recipient = from,
+        Quantity = estimate.shareA
+    });
+    ao.send({
+        Target = TokenBProcess,
+        Action = "transfer",
+        Recipient = from,
+        Quantity = estimate.shareB
+    });
 end
 
 function SwapA(from, amount, slippage)
@@ -201,6 +213,12 @@ function SwapA(from, amount, slippage)
             Action = "Bonded"
         });
     end
+    ao.send({
+        Target = TokenBProcess,
+        Action = "transfer",
+        Recipient = from,
+        Quantity = estimate
+    });
 end
 
 function SwapB(from, amount, slippage)
@@ -238,6 +256,12 @@ function SwapB(from, amount, slippage)
             Action = "Bonded"
         });
     end
+    ao.send({
+        Target = TokenAProcess,
+        Action = "transfer",
+        Recipient = from,
+        Quantity = estimate
+    });
 end
 
 function CreditNotice(msg)
