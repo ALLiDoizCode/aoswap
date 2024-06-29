@@ -22,37 +22,37 @@ TokenBProcess = "";
 Handlers.add('Init', Handlers.utils.hasMatchingTag('Action', 'Init'), function(msg)
     ao.isTrusted(msg)
     assert(IsActive == false,"Pool is already active")
-    Init(msg.from,msg.TokenA,msg.TokenB,Utils.toNumber(msg.BondingCurve))
+    Init(msg.from,msg.TokenA,msg.TokenB,msg.BondingCurve)
 end)
 
 Handlers.add("InitalLiquidity", Handlers.utils.hasMatchingTag('Action', "InitalLiquidity"), function(msg)
     assert(IsActive == false,"Pool is already active")
     assert(TokenA == 0 and TokenB == 0,"Token balance is in a bad state")
     assert(IsActive == false,"Pool is already active")
-    InitalLiquidity(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
+    InitalLiquidity(msg.From, msg.amountA, msg.amountB)
     IsActive = true
 end);
 
 Handlers.add("Add", Handlers.utils.hasMatchingTag('Action', "Add"), function(msg)
     assert(IsPump == false,"You can't added liquidity to pumps")
     assert(IsActive,"Pool must be active")
-    Add(msg.From, Utils.toNumber(msg.amountA), Utils.toNumber(msg.amountB))
+    Add(msg.From, msg.amountA, msg.amountB)
 end);
 
 Handlers.add("Remove", Handlers.utils.hasMatchingTag('Action', "Remove"), function(msg)
     assert(IsPump == false,"You can't remove liquidity from pumps")
     assert(IsActive,"Pool must be active")
-    Remove(msg.From, Utils.toNumber(msg.share))
+    Remove(msg.From, msg.share)
 end);
 
 Handlers.add("SwapA", Handlers.utils.hasMatchingTag('Action', "SwapA"), function(msg)
     assert(IsActive,"Pool must be active")
-    SwapA(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
+    SwapA(msg.From, msg.amount,msg.slippage);
 end);
 
 Handlers.add("SwapB", Handlers.utils.hasMatchingTag('Action', "SwapB"), function(msg)
     assert(IsActive,"Pool must be active")
-    SwapB(msg.From, Utils.toNumber(msg.amount),Utils.toNumber(msg.slippage));
+    SwapB(msg.From, msg.amount,msg.slippage);
 end)
 
 Handlers.add('Balance', Handlers.utils.hasMatchingTag('Action', 'Balance'), function(msg)
@@ -70,7 +70,7 @@ end)
 function Init(from,tokenA, tokenB, bondingCurve)
     TokenAProcess = tokenA;
     TokenBProcess = tokenB;
-    BondingCurve = bondingCurve;
+    BondingCurve = Utils.toNumber(bondingCurve);
     Balances[TokenAProcess] = {};
     Balances[TokenBProcess] = {};
     ao.send({
@@ -94,11 +94,11 @@ function InitalLiquidity(from, amountA, amountB)
     end;
     SubstractBalance(from, TokenAProcess, amountA);
     SubstractBalance(from, TokenBProcess, amountB);
-    TokenA = TokenA + Utils.toNumber(amountA);
-    TokenB = TokenB + Utils.toNumber(amountB);
-    local _share = Utils.toNumber(Shares[from]);
-    Shares[from] = _share + _Share;
-    TotalShares = TotalShares + _Share;
+    TokenA = Utils.toNumber(Utils.add(TokenA,amountA));
+    TokenB = Utils.toNumber(Utils.add(TokenB,amountB));
+    local _share = Shares[from];
+    Shares[from] = Utils.toNumber(Utils.add(_share, _Share));
+    TotalShares = Utils.toNumber(Utils.add(TotalShares, _Share));
 end
 
 function Add(from, amountA, amountB)
@@ -129,11 +129,11 @@ function Add(from, amountA, amountB)
     _Share = shareA;
     SubstractBalance(from, TokenAProcess, amountA);
     SubstractBalance(from, TokenBProcess, amountB);
-    TokenA = TokenA + amountA;
-    TokenB = TokenB + amountB;
+    TokenA = Utils.add(TokenA, amountA);
+    TokenB = Utils.add(TokenB, amountB);
     local _share = Shares[from];
-    Shares[from] = _share + _Share;
-    TotalShares = TotalShares + _Share;
+    Shares[from] = Utils.add(_share, _Share);
+    TotalShares = Utils.add( TotalShares, _Share);
 end
 
 function Remove(from, share)
@@ -159,10 +159,10 @@ function Remove(from, share)
         Utils.result(from, 403, "Invalid Amount in reserve B")
         return
     end;
-    Shares[from] = _Share - share;
+    Shares[from] = Utils.subtract(_Share, share);
     AddBalance(from, TokenAProcess, estimate.shareA);
     AddBalance(from, TokenBProcess, estimate.shareB);
-    TotalShares = TotalShares + share;
+    TotalShares = Utils.add(TotalShares, share);
 end
 
 function SwapA(from, amount, slippage)
@@ -190,8 +190,8 @@ function SwapA(from, amount, slippage)
     end;
     SubstractBalance(from, TokenAProcess, amount);
     AddBalance(from, TokenBProcess, estimate);
-    TokenA = TokenA + amount;
-    TokenB = TokenB - estimate;
+    TokenA = Utils.add(TokenA, amount);
+    TokenB = Utils.subtract(TokenB, estimate);
     local liquidity = GetLiquidity();
     if liquidity >= BondingCurve then
         IsPump = false;
@@ -227,8 +227,8 @@ function SwapB(from, amount, slippage)
     end;
     SubstractBalance(from, TokenBProcess, amount);
     AddBalance(from, TokenAProcess, estimate);
-    TokenB = TokenB + amount;
-    TokenA = TokenA - estimate;
+    TokenB = Utils.add(TokenB, amount);
+    TokenA = Utils.subtract(TokenA, estimate);
     local liquidity = GetLiquidity();
     if liquidity >= BondingCurve then
         IsPump = false;
@@ -243,7 +243,7 @@ function CreditNotice(msg)
     if not Balances[msg.From] then Balances[msg.From] = {} end;
     if not Balances[msg.From][msg.Sender] then Balances[msg.From][msg.Sender] = 0 end;
     local balance = Balances[msg.From][msg.Sender];
-    Balances[msg.From][msg.Sender] = balance + Utils.toNumber(msg.Quantity);
+    Balances[msg.From][msg.Sender] = Utils.add(balance,msg.Quantity);
 end
 
 function Info(msg)
@@ -282,7 +282,7 @@ function Withdraw(msg)
             Utils.result(msg.From, 403, "Insufficient Funds")
             return
         end;
-        Balances[TokenAProcess][msg.From] = _balance - msg.Quantity;
+        Balances[TokenAProcess][msg.From] = Utils.subtract(_balance,msg.Quantity);
         ao.send({
             Target = TokenAProcess,
             Tags = {
@@ -297,7 +297,7 @@ function Withdraw(msg)
             Utils.result(msg.From, 403, "Insufficient Funds")
             return
         end;
-        Balances[TokenBProcess][msg.From] = _balance - msg.Quantity;
+        Balances[TokenBProcess][msg.From] = Utils.subtract(_balance,msg.Quantity);
         ao.send({
             Target = TokenBProcess,
             Tags = {
@@ -309,12 +309,87 @@ function Withdraw(msg)
     end
 end
 
+function IsValid(owner, token, amount)
+    if not Balances[token] then token[token] = {} end;
+    if not Balances[token][owner] then Balances[token][owner] = 0 end;
+    local balance = Balances[token][owner];
+    return Utils.toNumber(amount) > 0 and Utils.toNumber(balance) >= Utils.toNumber(amount);
+    ---return false
+end
+
+function GetRemoveEstimate(share)
+    local result = {};
+    result.shareA = 0;
+    result.shareB = 0;
+    result.shareA = Utils.div( Utils.mul(share, TokenA), TotalShares);
+    result.shareB = Utils.div(Utils.mul(share, TokenB), TotalShares);
+    return result
+end
+
+function GetEquivalentTokenAEstimate(amountB)
+    return Utils.div(Utils.mul(TokenA, amountB), TokenB)
+end
+
+function GetEquivalentTokenBEstimate(amountA)
+    return Utils.div(Utils.mul(TokenB, amountA),TokenA)
+end
+
+function GetSwapTokenAEstimate(amount)
+    local tokenA = Utils.add(TokenA, amount);
+    local tokenB = Utils.div(Price(), tokenA);
+    local amountB = Utils.subtract(TokenB, tokenB);
+    if amountB == TokenB then amountB = Utils.subtract(amountB, 1); end --To ensure that the pool is not completely depleted
+    return amountB
+end
+
+function GetSwapTokenBEstimate(amount)
+    local tokenB = Utils.add(TokenB, amount);
+    local tokenA = Utils.div(Price(), tokenB);
+    local amountA = Utils.subtract(TokenA, tokenA);
+    if amountA == TokenA then amountA = Utils.subtract(amountA, 1); end --To ensure that the pool is not completely depleted
+    return amountA
+end
+
+function Price()
+    return Utils.mul(TokenA, TokenB);
+end
+
+function AddBalance(owner, token, amount)
+    if Balances[token][owner] == nil then token[token][owner] = 0 end;
+    local _balance = Balances[token][owner];
+    Balances[token][owner] = Utils.add(_balance,amount);
+end
+
+function SubstractBalance(owner, token, amount)
+    if Balances[token][owner] == nil then token[token][owner] = 0 end;
+    local _balance = Balances[token][owner];
+    if Utils.toNumber(amount) > Utils.toNumber(_balance) then Balances[token][owner] = 0 end;
+    Balances[token][owner] = Utils.subtract(_balance,amount);
+end
+
+function GetLiquidity()
+    if TokenA == 0 and TokenB == 0 then return 0 end;
+    local _price = Utils.div(TokenB, TokenA);
+    local amount = Utils.mul(_price, TokenA);
+    return Utils.add(amount, TokenB);
+end
+
+function _FeeMachine()
+    --setup logic ot handle fee
+end
+
 Utils = {
     add = function(a, b)
         return tostring(bint(a) + bint(b))
     end,
     subtract = function(a, b)
         return tostring(bint(a) - bint(b))
+    end,
+    mul = function(a, b)
+        return tostring(bint(a) * bint(b))
+    end,
+    div = function(a, b)
+        return tostring(bint(a) / bint(b))
     end,
     toBalanceValue = function(a)
         return tostring(bint(a))
@@ -329,76 +404,4 @@ Utils = {
         });
     end
 }
-
-
-function IsValid(owner, token, amount)
-    if not Balances[token] then token[token] = {} end;
-    if not Balances[token][owner] then Balances[token][owner] = 0 end;
-    local balance = Balances[token][owner];
-    return Utils.toNumber(amount) > 0 and Utils.toNumber(balance) >= Utils.toNumber(amount);
-    ---return false
-end
-
-function GetRemoveEstimate(share)
-    local result = {};
-    result.shareA = 0;
-    result.shareB = 0;
-    result.shareA = (share * TokenA) / TotalShares;
-    result.shareB = (share * TokenB) / TotalShares;
-    return result
-end
-
-function GetEquivalentTokenAEstimate(amountB)
-    return (TokenA * Utils.toNumber(amountB)) / TokenB
-end
-
-function GetEquivalentTokenBEstimate(amountA)
-    return (TokenB * amountA) / TokenA
-end
-
-function GetSwapTokenAEstimate(amount)
-    local tokenA = TokenA + amount;
-    local tokenB = Price() / tokenA;
-    local amountB = TokenB - tokenB;
-    if amountB == TokenB then amountB = amountB - 1; end --To ensure that the pool is not completely depleted
-    return amountB
-end
-
-function GetSwapTokenBEstimate(amount)
-    local tokenB = TokenB + amount;
-    local tokenA = Price() / tokenB;
-    local amountA = TokenA - tokenA;
-    if amountA == TokenA then amountA = amountA - 1; end --To ensure that the pool is not completely depleted
-    return amountA
-end
-
-function Price()
-    return TokenA * TokenB;
-end
-
-function AddBalance(owner, token, amount)
-    if Balances[token][owner] == nil then token[token][owner] = 0 end;
-    local _balance = Balances[token][owner];
-    Balances[token][owner] = Utils.toNumber(_balance) + Utils.toNumber(amount);
-end
-
-function SubstractBalance(owner, token, amount)
-    if Balances[token][owner] == nil then token[token][owner] = 0 end;
-    local _balance = Balances[token][owner];
-    if Utils.toNumber(amount) > Utils.toNumber(_balance) then Balances[token][owner] = 0 end;
-    Balances[token][owner] = Utils.toNumber(_balance) - Utils.toNumber(amount);
-end
-
-function GetLiquidity()
-    if TokenA == 0 and TokenB == 0 then return 0 end;
-    local _price = TokenB / TokenA;
-    local amount = _price * TokenA;
-    return amount + TokenB;
-end
-
-function _FeeMachine()
-    --setup logic ot handle fee
-end
-
-
 
